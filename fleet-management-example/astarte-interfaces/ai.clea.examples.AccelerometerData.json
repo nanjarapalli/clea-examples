@@ -7,25 +7,22 @@
     "aggregation": "object",
     "mappings": [
         {
-            "endpoint": "/%{sensor_id}/x",
+            "endpoint": "/x",
             "type": "double",
             "database_retention_policy": "use_ttl",
-            "database_retention_ttl": 115200,
-            "explicit_timestamp": true
+            "database_retention_ttl": 115200
         },
         {
-            "endpoint": "/%{sensor_id}/y",
+            "endpoint": "/y",
             "type": "double",
             "database_retention_policy": "use_ttl",
-            "database_retention_ttl": 115200,
-            "explicit_timestamp": true
+            "database_retention_ttl": 115200
         },
         {
-            "endpoint": "/%{sensor_id}/z",
+            "endpoint": "/z",
             "type": "double",
             "database_retention_policy": "use_ttl",
-            "database_retention_ttl": 115200,
-            "explicit_timestamp": true
+            "database_retention_ttl": 115200
         }
     ]
 }

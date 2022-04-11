@@ -1,0 +1,26 @@
+{
+    "interface_name": "ai.clea.examples.MachineryAlert",
+    "version_major": 0,
+    "version_minor": 1,
+    "type": "datastream",
+    "ownership": "device",
+    "aggregation": "object",
+    "mappings": [
+        {
+            "endpoint": "/alertCode",
+            "type": "integer",
+            "database_retention_policy": "use_ttl",
+            "database_retention_ttl": 31536000,
+            "explicit_timestamp": true,
+            "description":"String which describes the current alert. Null value represent no issues."
+        },
+        {
+            "endpoint": "/alertSeverity",
+            "type": "integer",
+            "database_retention_policy": "use_ttl",
+            "database_retention_ttl": 31536000,
+            "explicit_timestamp": true,
+            "description":"Integer which identifies the alert. Possible alerts are:  [0:Info,  1:Warning,  2:Error]"
+        }
+    ]
+}
