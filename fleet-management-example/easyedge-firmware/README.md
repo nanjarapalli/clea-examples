@@ -12,7 +12,6 @@ git clone https://github.com/harlem88/lis3dh-esp-idf.git
 mv ./lis3dh-esp-idf/components/lis3dh .
 mv ./lis3dh-esp-idf/components/esp8266_wrapper .
 rm -rf lis3dh-esp-idf
-# TODO GPS driver
 cd ..
 ```
 
@@ -29,6 +28,9 @@ Set the Astarte configuration by editing in `Component config/Astarte SDK` items
     + `Astarte pairing base URL`
     + `Pairing JWT token`
     + `Astarte connectivity test URL`
+---
+
+**Note that modem is not used at the moment. Positioning data is an approximation given by the list of neighboring APs APs.**
 
 
 # Build
