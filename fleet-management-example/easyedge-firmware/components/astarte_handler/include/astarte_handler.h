@@ -8,4 +8,11 @@
  */
 
 
-void func(void);
+#
+
+
+
+
+typedef struct {
+    // TODO
+} astarte_handler_t;
