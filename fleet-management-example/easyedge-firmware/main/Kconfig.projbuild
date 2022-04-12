@@ -1,0 +1,32 @@
+menu "Fleet management demo"
+
+config WIFI_SSID
+    string "WiFi SSID"
+    default "myssid"
+    help
+        SSID (network name) for the example to connect to.
+
+config WIFI_PASSWORD
+    string "WiFi Password"
+    default "mypassword"
+    help
+        WiFi password (WPA or WPA2) for the example to use.
+
+config WIFI_MAXIMUM_RETRY
+    int "WiFi maximum retry"
+    default 10
+    help
+        Maimum number of retrials to connect to wifi AP.
+
+config ACCELEROMETER_DATA_FREQUENCY
+    int "Accelerometer data publish frequency"
+    default 2
+    help
+        TODO
+
+config POSITIONING_DATA_FREQUENCY
+    int "GPS data publish frequency"
+    default 2
+    help
+        TODO
+endmenu
