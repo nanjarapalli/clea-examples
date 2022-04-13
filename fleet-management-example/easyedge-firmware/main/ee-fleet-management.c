@@ -33,7 +33,7 @@
 #define POTENTIOMETER_ADC_ATT   ADC_ATTEN_DB_11
 #define POTENTIOMETER_ADC_BIT_W ADC_WIDTH_BIT_10
 // Storage
-#define STORAGE_NAMESPACE   "FM_storage"
+#define STORAGE_NAMESPACE   "nvs"
 
 
 uint32_t wifi_retry_count   = 0;
@@ -41,7 +41,9 @@ EventGroupHandle_t wifi_event_group;
 #define WIFI_CONNECTED_BIT  BIT0
 #define WIFI_FAILED_BIT     BIT1
 
-EventGroupHandle_t astarte_event_group;
+ESP_EVENT_DEFINE_BASE(ASTARTE_EVENTS);
+#define ASTARTE_INITIALIZED_BIT BIT0
+#define ASTARTE_FAILED_BIT      BIT1
 
 
 static void evt_handler (void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
@@ -67,8 +69,12 @@ static void evt_handler (void* arg, esp_event_base_t event_base, int32_t event_i
         ESP_LOGD (TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupSetBits (wifi_event_group, WIFI_CONNECTED_BIT);
     }
+    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
+        // Ignoring it
+    }
     else {
         ESP_LOGE (TAG, "Unknown triggered event.\n\tEvent base:  %s\n\tEvent id:    %d", event_base, event_id);
+        ESP_LOGW (TAG, "%d\n", WIFI_EVENT_STA_STOP);
     }
 }
 
@@ -174,10 +180,26 @@ esp_err_t init_wifi_connection () {
 
 
 astarte_handler_t* init_astarte () {
-    const char* TAG             = "init_astarte";
-    astarte_handler_t* astarte  = NULL;
-    astarte_event_group         = xEventGroupCreate();
-    // TODO
+    const char* TAG                         = "init_astarte";
+    EventGroupHandle_t astarte_event_group  = xEventGroupCreate ();
+    astarte_handler_t* astarte              = astarte_handler_create ();    // TODO Use me!
+    if (!astarte) {
+        ESP_LOGE (TAG, "Cannot create Astarte handler");
+        return NULL;
+    }
+
+    // TODO Setting astarte_event_group to 0
+
+    while (!astarte->start(astarte)) {
+        ESP_LOGI (TAG, "Retrying astarte connection");
+        // TODO Setting astarte_event_group to 0
+        vTaskDelay(60 * 100 / portTICK_PERIOD_MS);
+    }
+
+    // TODO Waiting for handler creation
+
+    ESP_LOGI (TAG, "Succesfully connected to astarte");
+    
     return astarte;
 
 }
@@ -211,7 +233,7 @@ void app_main(void) {
 
     // Initializing Wifi connection
     ESP_ERROR_CHECK (init_wifi_connection());
-    ESP_LOGI (TAG, "Initialized wifi");
+    ESP_LOGI (TAG, "Initialized wifi connection");
 
     // Initializing Astarte
     init_astarte();
@@ -222,8 +244,8 @@ void app_main(void) {
     // TODO Initializing positioning provider
 
     // Initializing GPIO to read potentiometer data
-    gpio_pad_select_gpio (GPIO_NUM_25);
+    /*gpio_pad_select_gpio (GPIO_NUM_25);
     gpio_set_direction (GPIO_NUM_25, GPIO_MODE_OUTPUT);
     gpio_set_level (GPIO_NUM_25, 0);
-    xTaskCreate (potentiometer_reader, "potentiometer_reeader", 2048, NULL, 10, NULL);
+    xTaskCreate (potentiometer_reader, "potentiometer_reeader", 2048, NULL, 10, NULL);*/
 }

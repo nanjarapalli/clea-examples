@@ -1,0 +1,32 @@
+menu "Astarte handler"
+
+config ASTARTE_ID
+    string "Astarte fixed device ID"
+    default ""
+    help
+        Astarte identifier to be used if 'CONFIG_USE_FIXED_ID' is greater than 0.
+
+config USE_FIXED_ID
+    int "Use fixed ID"
+    default 0
+    help
+        Use fixed Astarte ID (contained in 'CONFIG_ASTARTE_ID') instead of hardware generated ID, if value is greater than 0.
+
+config WIFI_MAXIMUM_RETRY
+    int "WiFi maximum retry"
+    default 10
+    help
+        Maimum number of retrials to connect to wifi AP.
+
+config ACCELEROMETER_DATA_FREQUENCY
+    int "Accelerometer data publish frequency"
+    default 2
+    help
+        TODO
+
+config POSITIONING_DATA_FREQUENCY
+    int "GPS data publish frequency"
+    default 2
+    help
+        TODO
+endmenu
