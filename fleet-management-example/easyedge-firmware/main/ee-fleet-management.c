@@ -17,23 +17,31 @@
 
 #include <driver/adc.h>
 #include <driver/gpio.h>
+#include <driver/i2c.h>
 #include <esp_log.h>
 #include <esp_adc_cal.h>
 #include <nvs.h>
 #include <nvs_flash.h>
 #include <esp_event_base.h>
 #include <esp_wifi.h>
+#include <lis3dh.h>
 
 #include <astarte_handler.h>
 
+#include <string.h>
+
+
+#define TASK_STACK_DEPTH 4096
+
+// Storage
+#define STORAGE_NAMESPACE   "nvs"
 
 // Potentiometer data among 0 and 1024
 #define POTENTIOMETER_GPO_NUM   GPIO_NUM_36
 #define POTENTIOMETER_ADC_CH    ADC1_CHANNEL_0
 #define POTENTIOMETER_ADC_ATT   ADC_ATTEN_DB_11
 #define POTENTIOMETER_ADC_BIT_W ADC_WIDTH_BIT_10
-// Storage
-#define STORAGE_NAMESPACE   "nvs"
+#define POTENTIOMETER_TASK_P    2
 
 // Wifi
 uint32_t wifi_retry_count           = 0;
@@ -42,6 +50,12 @@ uint32_t wifi_retry_count           = 0;
 
 ESP_EVENT_DEFINE_BASE(ASTARTE_HANDLER_EVENTS);
 
+// Accelerometer
+#define I2C_BUS 0
+#define I2C_SCL_PIN 19
+#define I2C_SDA_PIN 18
+#define I2C_FREQ I2C_FREQ_400K
+#define ACCELEROMETER_TASK_P    10
 
 
 
@@ -53,18 +67,18 @@ static void event_handler (void* handler_arg, esp_event_base_t event_base, int32
     // ================================     WIFI events     ================================
     if (event_base == WIFI_EVENT) {
         if (event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    }
-        else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (wifi_retry_count < CONFIG_WIFI_MAXIMUM_RETRY) {
-            ++wifi_retry_count;
-            ESP_LOGW (TAG, "Retrying to connect to the AP (#%d)", wifi_retry_count);
             esp_wifi_connect();
-        } else {
-                xEventGroupSetBits((EventGroupHandle_t) handler_arg, WIFI_FAILED_BIT);
-            ESP_LOGE (TAG,"connect to the AP fail");
         }
-    }
+        else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
+            if (wifi_retry_count < CONFIG_WIFI_MAXIMUM_RETRY) {
+                ++wifi_retry_count;
+                ESP_LOGW (TAG, "Retrying to connect to the AP (#%d)", wifi_retry_count);
+                esp_wifi_connect();
+            } else {
+                xEventGroupSetBits((EventGroupHandle_t) handler_arg, WIFI_FAILED_BIT);
+                ESP_LOGE (TAG,"connect to the AP fail");
+            }
+        }
     }
     // ================================     IP events     ================================
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -90,6 +104,10 @@ static void event_handler (void* handler_arg, esp_event_base_t event_base, int32
 
 
 
+/*  =============================
+            Init fuctions
+    =============================  */
+
 void potentiometer_reader (void* arg) {
     const char* TAG = "potentiometer_reader";
 
@@ -111,9 +129,29 @@ void potentiometer_reader (void* arg) {
 
 
 
+void accelerometer_reader (void* arg) {
+    const char* TAG         = "accelerometer_reader";
+    lis3dh_sensor_t* sensor = (lis3dh_sensor_t*) arg;
+    lis3dh_float_data_t data;
+
+    while (1) {
+        memset (&data, '\0', sizeof(data));
+     
+        if (lis3dh_new_data(sensor) && lis3dh_get_float_data(sensor, &data)) {
+            ESP_LOGD (TAG, "LIS3DH (xyz)[g] ax=%+7.3f ay=%+7.3f az=%+7.3f", data.ax, data.ay, data.az);
+        }
+        
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+
+
+
 /*  =============================
             Init fuctions
     =============================  */
+    
 esp_err_t init_nvs () {
     const char* TAG = "init_nvs";
     esp_err_t res   = nvs_flash_init ();
@@ -231,7 +269,7 @@ esp_err_t init_astarte (astarte_handler_t** target) {
     else {
         ESP_LOGD (TAG, "Succesfully connected to astarte");
     }
-
+    
     // Cleaning up 
     vEventGroupDelete (astarte_event_group);
     ESP_ERROR_CHECK(
@@ -242,10 +280,39 @@ esp_err_t init_astarte (astarte_handler_t** target) {
 
 // ##################################################
 
-esp_err_t init_accelerometer_reader () {
-    const char* TAG = "init_accelerometer_reader";
-    esp_err_t res   = ESP_OK;
-    // TODO
+esp_err_t init_accelerometer_reader (lis3dh_sensor_t** sensor) {
+    const char* TAG         = "init_accelerometer_reader";
+    esp_err_t res           = ESP_OK;
+    *sensor                 = NULL;
+    
+    i2c_init (I2C_BUS, I2C_SCL_PIN, I2C_SDA_PIN, I2C_FREQ);
+    *sensor = lis3dh_init_sensor(I2C_BUS, LIS3DH_I2C_ADDRESS_2, 0);
+
+    if (sensor) {
+        lis3dh_set_scale (*sensor, lis3dh_scale_2_g);
+        lis3dh_set_mode (*sensor, lis3dh_odr_10, lis3dh_high_res, true, true, true);
+
+        xTaskCreate (accelerometer_reader, "accelerometer_reader", TASK_STACK_DEPTH, *sensor,
+                        ACCELEROMETER_TASK_P, NULL);
+    } else {
+        res = ESP_FAIL;
+        ESP_LOGE (TAG, "Cannot initialize LIS3DH sensor!");
+    }
+
+    return res;
+}
+
+// ##################################################
+
+esp_err_t init_potentiometer_reader () {
+    esp_err_t res           = ESP_OK;
+
+    gpio_pad_select_gpio (GPIO_NUM_25);
+    gpio_set_direction (GPIO_NUM_25, GPIO_MODE_OUTPUT);
+    gpio_set_level (GPIO_NUM_25, 0);
+    xTaskCreate (potentiometer_reader, "potentiometer_reeader", TASK_STACK_DEPTH, NULL,
+                    POTENTIOMETER_TASK_P, NULL);
+
     return res;
 }
 
@@ -265,9 +332,15 @@ esp_err_t init_positioning_provider () {
 
 void app_main(void) {
     astarte_handler_t* astarte_handler  = NULL;
-    printf ("\n\n\n");
+    lis3dh_sensor_t* lis3dh_sensor      = NULL;
+    const char* TAG                     = "app_main";
 
-    const char* TAG     = "app_main";
+    printf ("\
+\n\n\n\
+==================================================\n\
+                Managing the fleet\n\
+==================================================\n\n\n");
+
     ESP_LOGI (TAG, "Managing the fleet!\n");
 
     // Initializing NVS flash
@@ -282,14 +355,15 @@ void app_main(void) {
     ESP_ERROR_CHECK (init_astarte(&astarte_handler));
     ESP_LOGI (TAG, "Initialized astarte connection");
 
-    // TODO Initializing accelerometer reader
+    // Initializing accelerometer reader
+    ESP_ERROR_CHECK (init_accelerometer_reader(&lis3dh_sensor));
+    ESP_LOGI (TAG, "Initialized lis3dh sensor");
 
-
-    // TODO Initializing positioning provider
+    // Initializing positioning provider
+    ESP_ERROR_CHECK (init_positioning_provider());
+    ESP_LOGI (TAG, "Initialized positioning provider");
 
     // Initializing GPIO to read potentiometer data
-    /*gpio_pad_select_gpio (GPIO_NUM_25);
-    gpio_set_direction (GPIO_NUM_25, GPIO_MODE_OUTPUT);
-    gpio_set_level (GPIO_NUM_25, 0);
-    xTaskCreate (potentiometer_reader, "potentiometer_reeader", 2048, NULL, 10, NULL);*/
+    ESP_ERROR_CHECK (init_potentiometer_reader());
+    ESP_LOGI (TAG, "Initialized potentiometer reader");
 }
