@@ -41,12 +41,13 @@ astarte_handler_t* astarte_handler_create () {
     astarte_credentials_init ();
     
 #if CONFIG_USE_FIXED_ID == 0 
+    ESP_LOGD (TAG, "Using hardware ID");
     encoded_hwid    = astarteHandler_get_hardware_id_encoded();
 #else
-    ESP_LOGI (TAG, "Using fixed ID");
+    ESP_LOGD (TAG, "Using fixed ID");
     encoded_hwid    = malloc (strlen(CONFIG_ASTARTE_ID)+1);
     memset (encoded_hwid, '\0', strlen(CONFIG_ASTARTE_ID)+1);
-    strcpy (encoded_hwid, CONFIG_ASTARTE_ID);
+    memcpy (encoded_hwid, CONFIG_ASTARTE_ID, strlen(CONFIG_ASTARTE_ID));
 #endif
 
     if (!encoded_hwid) {
@@ -62,9 +63,7 @@ astarte_handler_t* astarte_handler_create () {
         .hwid                           = (char *) encoded_hwid
     };
 
-ESP_LOGI (TAG, "1");
     device  = astarte_device_init (&cfg);
-ESP_LOGI (TAG, "2");
 
     free(encoded_hwid);
 
@@ -168,13 +167,12 @@ static esp_err_t _add_interface (astarte_device_handle_t device, astarte_interfa
 static bool _start_handler (astarte_handler_t* this) {
     const char* TAG     = "_start_handler";
     astarte_err_t err   = astarte_device_start (this->device_handle);
+    
     if (err != ASTARTE_OK) {
         ESP_LOGE (TAG, "astarte device doesn't start, code err: %d", err);
-        return false;
     }
 
-    ESP_LOGD (TAG, "Astarte device started");
-    return true;
+    return (err==ASTARTE_OK);
 }
 
 
@@ -197,16 +195,17 @@ static bool _stop_handler (astarte_handler_t* this) {
 
 
 static void _astarte_data_cb (astarte_device_data_event_t* event) {
-    // TODO
     const char* TAG = "_astarte_data_cb";
     ESP_LOGI (TAG, "Got Astarte data event, interface_name: %s, path: %s, bson_type: %d",
                     event->interface_name, event->path, event->bson_value_type);
+
+    // TODO
 
     /*if (strcm p(event->interface_name, server_datastream_interface.name) == 0
         && strcmp(event->path, "/led") == 0 && event->bson_value_type == BSON_TYPE_BOOLEAN) {
         int led_state = astarte_bson_value_to_int8(event->bson_value);
 
-        esp_event_post(ASTARTE_EVENTS, ASTARTE_EVENT_LED, (void*) &led_state, sizeof(int), 0);
+        esp_event_post(ASTARTE_HANDLER_EVENTS, ASTARTE_EVENT_LED, (void*) &led_state, sizeof(int), 0);
     }*/
 }
 
@@ -214,14 +213,16 @@ static void _astarte_data_cb (astarte_device_data_event_t* event) {
 
 
 static void _astarte_connection_cb () {
-    ESP_LOGW ("_astarte_connection_cb", "Connected to astarte!");
-    // TODO
+    ESP_LOGV ("_astarte_connection_cb", "Connected to astarte!");
+    // Triggering relative event
+    esp_event_post (ASTARTE_HANDLER_EVENTS, ASTARTE_HANDLER_EVENT_CONNECT, NULL, 0, 0);
 }
 
 
 
 
 static void _astarte_disconnection_cb () {
-    ESP_LOGW ("_astarte_disconnection_cb", "Disconnected from astarte!");
-    // TODO
+    ESP_LOGV ("_astarte_disconnection_cb", "Disconnected from astarte!");
+    // Triggering relative event
+    esp_event_post(ASTARTE_HANDLER_EVENTS, ASTARTE_HANDLER_EVENT_DISCONNECT, NULL, 0, 0);
 }

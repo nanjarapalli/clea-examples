@@ -27,7 +27,7 @@
 #include <astarte_handler.h>
 
 
-// Accelerometer data among 0 and 1024
+// Potentiometer data among 0 and 1024
 #define POTENTIOMETER_GPO_NUM   GPIO_NUM_36
 #define POTENTIOMETER_ADC_CH    ADC1_CHANNEL_0
 #define POTENTIOMETER_ADC_ATT   ADC_ATTEN_DB_11
@@ -35,48 +35,59 @@
 // Storage
 #define STORAGE_NAMESPACE   "nvs"
 
-
-uint32_t wifi_retry_count   = 0;
-EventGroupHandle_t wifi_event_group;
+// Wifi
+uint32_t wifi_retry_count           = 0;
 #define WIFI_CONNECTED_BIT  BIT0
 #define WIFI_FAILED_BIT     BIT1
 
-ESP_EVENT_DEFINE_BASE(ASTARTE_EVENTS);
-#define ASTARTE_INITIALIZED_BIT BIT0
-#define ASTARTE_FAILED_BIT      BIT1
+ESP_EVENT_DEFINE_BASE(ASTARTE_HANDLER_EVENTS);
 
 
-static void evt_handler (void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
-    const char* TAG = "evt_handler";
+
+
+static void event_handler (void* handler_arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+    const char* TAG = "event_handler";
     ESP_LOGD (TAG, "Catched event  '%s'  with id  %d", event_base, event_id);
     
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+
+    // ================================     WIFI events     ================================
+    if (event_base == WIFI_EVENT) {
+        if (event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     }
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        else if (event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if (wifi_retry_count < CONFIG_WIFI_MAXIMUM_RETRY) {
             ++wifi_retry_count;
             ESP_LOGW (TAG, "Retrying to connect to the AP (#%d)", wifi_retry_count);
             esp_wifi_connect();
         } else {
-            xEventGroupSetBits(wifi_event_group, WIFI_FAILED_BIT);
+                xEventGroupSetBits((EventGroupHandle_t) handler_arg, WIFI_FAILED_BIT);
             ESP_LOGE (TAG,"connect to the AP fail");
         }
     }
+    }
+    // ================================     IP events     ================================
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event    = (ip_event_got_ip_t*) event_data;
         wifi_retry_count            = 0;
         ESP_LOGD (TAG, "Got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        xEventGroupSetBits (wifi_event_group, WIFI_CONNECTED_BIT);
+        xEventGroupSetBits ((EventGroupHandle_t) handler_arg, WIFI_CONNECTED_BIT);
     }
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
-        // Ignoring it
+    // ================================     ASTARTE HANDLER events     ================================
+    else if (event_base == ASTARTE_HANDLER_EVENTS) {
+        if (event_id == ASTARTE_HANDLER_EVENT_CONNECT) {
+            xEventGroupSetBits((EventGroupHandle_t) handler_arg, ASTARTE_HANDLER_INITIALIZED_BIT);
+        }
+        else if (event_id == ASTARTE_HANDLER_EVENT_DISCONNECT) {
+            xEventGroupSetBits((EventGroupHandle_t) handler_arg, ASTARTE_HANDLER_FAILED_BIT);
+        }
     }
     else {
         ESP_LOGE (TAG, "Unknown triggered event.\n\tEvent base:  %s\n\tEvent id:    %d", event_base, event_id);
-        ESP_LOGW (TAG, "%d\n", WIFI_EVENT_STA_STOP);
     }
 }
+
+
 
 
 void potentiometer_reader (void* arg) {
@@ -91,7 +102,6 @@ void potentiometer_reader (void* arg) {
     // Continuously reading potentiometer value
     while (1) {
         int raw_adc_value   = adc1_get_raw (POTENTIOMETER_ADC_CH);
-        // TODO Post new event if 
         ESP_LOGV (TAG, "GPIO value: %d", raw_adc_value);
 
         vTaskDelay (pdMS_TO_TICKS(1000));
@@ -115,11 +125,14 @@ esp_err_t init_nvs () {
     return res;
 }
 
+// ##################################################
 
 esp_err_t init_wifi_connection () {
-    const char* TAG     = "init_wifi_connection";
-    esp_err_t res       = ESP_OK;
-    wifi_event_group    = xEventGroupCreate();
+    const char* TAG                     = "init_wifi_connection";
+    esp_err_t res                       = ESP_OK;
+    EventGroupHandle_t wifi_event_group = xEventGroupCreate();
+
+    xEventGroupClearBits (wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAILED_BIT);
 
     ESP_ERROR_CHECK (esp_netif_init());
     ESP_ERROR_CHECK (esp_event_loop_create_default());
@@ -132,10 +145,10 @@ esp_err_t init_wifi_connection () {
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
     ESP_ERROR_CHECK (esp_event_handler_instance_register (
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &evt_handler, NULL, &instance_any_id));
+        WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, (void*) wifi_event_group, &instance_any_id));
 
     ESP_ERROR_CHECK (esp_event_handler_instance_register (
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &evt_handler, NULL, &instance_got_ip));
+        IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, (void*) wifi_event_group, &instance_got_ip));
 
     wifi_config_t wifi_config = {
         .sta = {
@@ -178,32 +191,56 @@ esp_err_t init_wifi_connection () {
     return res;
 }
 
+// ##################################################
 
-astarte_handler_t* init_astarte () {
+esp_err_t init_astarte (astarte_handler_t** target) {
     const char* TAG                         = "init_astarte";
-    EventGroupHandle_t astarte_event_group  = xEventGroupCreate ();
-    astarte_handler_t* astarte              = astarte_handler_create ();    // TODO Use me!
-    if (!astarte) {
+    esp_err_t result                        = ESP_OK;
+    *target                                 = astarte_handler_create ();
+    if (!(*target)) {
         ESP_LOGE (TAG, "Cannot create Astarte handler");
-        return NULL;
+        *target  = NULL;
+        return ESP_FAIL;
     }
 
-    // TODO Setting astarte_event_group to 0
+    // Setting astarte_event_group to 0
+    EventGroupHandle_t astarte_event_group  = xEventGroupCreate ();
+    xEventGroupClearBits (astarte_event_group, ASTARTE_HANDLER_INITIALIZED_BIT | ASTARTE_HANDLER_FAILED_BIT);
 
-    while (!astarte->start(astarte)) {
+    // Registering handler for ASTARTE events
+    esp_event_handler_instance_t instance_any_id;
+    ESP_ERROR_CHECK (esp_event_handler_instance_register (
+        ASTARTE_HANDLER_EVENTS, ESP_EVENT_ANY_ID, &event_handler, (void*) astarte_event_group, &instance_any_id));
+
+    while (!(*target)->start(*target)) {
         ESP_LOGI (TAG, "Retrying astarte connection");
-        // TODO Setting astarte_event_group to 0
-        vTaskDelay(60 * 100 / portTICK_PERIOD_MS);
+        vTaskDelay (pdMS_TO_TICKS(500));
+        // TODO Add an upper limit
     }
 
-    // TODO Waiting for handler creation
+    // Waiting for handler creation
+    ESP_LOGD (TAG, "Waiting for handler creation..");
+    EventBits_t bits    = xEventGroupWaitBits (astarte_event_group, ASTARTE_HANDLER_INITIALIZED_BIT | ASTARTE_HANDLER_FAILED_BIT,
+                                                pdFALSE, pdFALSE, portMAX_DELAY);
+    if (bits & ASTARTE_HANDLER_FAILED_BIT) {
+        ESP_LOGE (TAG, "Cannot initialize astarte handler!");
+        astarte_handler_destroy (*target);
+        *target = NULL;
+        result  = ESP_FAIL;
+    }
+    else {
+        ESP_LOGD (TAG, "Succesfully connected to astarte");
+    }
 
-    ESP_LOGI (TAG, "Succesfully connected to astarte");
-    
-    return astarte;
+    // Cleaning up 
+    vEventGroupDelete (astarte_event_group);
+    ESP_ERROR_CHECK(
+        esp_event_handler_instance_unregister(ASTARTE_HANDLER_EVENTS, ESP_EVENT_ANY_ID, instance_any_id));
 
+    return result;
 }
 
+// ##################################################
 
 esp_err_t init_accelerometer_reader () {
     const char* TAG = "init_accelerometer_reader";
@@ -212,6 +249,7 @@ esp_err_t init_accelerometer_reader () {
     return res;
 }
 
+// ##################################################
 
 esp_err_t init_positioning_provider () {
     const char* TAG = "init_positioning_provider";
@@ -221,7 +259,12 @@ esp_err_t init_positioning_provider () {
 }
 
 
+// ################################################## //
+// ################################################## //
+
+
 void app_main(void) {
+    astarte_handler_t* astarte_handler  = NULL;
     printf ("\n\n\n");
 
     const char* TAG     = "app_main";
@@ -236,10 +279,11 @@ void app_main(void) {
     ESP_LOGI (TAG, "Initialized wifi connection");
 
     // Initializing Astarte
-    init_astarte();
+    ESP_ERROR_CHECK (init_astarte(&astarte_handler));
     ESP_LOGI (TAG, "Initialized astarte connection");
 
     // TODO Initializing accelerometer reader
+
 
     // TODO Initializing positioning provider
 

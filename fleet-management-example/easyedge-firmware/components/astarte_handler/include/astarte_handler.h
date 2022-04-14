@@ -12,6 +12,9 @@
 
 #include <astarte_device.h>
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/event_groups.h>
+
 #include <esp_log.h>
 #include <esp_err.h>
 #include <esp_event.h>
@@ -24,11 +27,13 @@
 
 #define NVS_PARTITION "nvs"
 
-ESP_EVENT_DECLARE_BASE(ASTARTE_EVENTS);
+ESP_EVENT_DECLARE_BASE(ASTARTE_HANDLER_EVENTS);
 enum {
-    ASTARTE_EVENT_CONNECT,
-    ASTARTE_EVENT_DISCONNECT
+    ASTARTE_HANDLER_EVENT_CONNECT,
+    ASTARTE_HANDLER_EVENT_DISCONNECT
 };
+#define ASTARTE_HANDLER_INITIALIZED_BIT BIT0
+#define ASTARTE_HANDLER_FAILED_BIT      BIT1
 
 
 /**
@@ -39,7 +44,6 @@ typedef struct astarte_handler_s {
     astarte_device_handle_t device_handle;
     bool (*start)(struct astarte_handler_s* this);
     bool (*stop)(struct astarte_handler_s* this);
-    // TODO Add functions to 
 } astarte_handler_t;
 
 
