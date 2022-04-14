@@ -138,7 +138,7 @@ void accelerometer_reader (void* arg) {
         memset (&data, '\0', sizeof(data));
      
         if (lis3dh_new_data(sensor) && lis3dh_get_float_data(sensor, &data)) {
-            ESP_LOGD (TAG, "LIS3DH (xyz)[g] ax=%+7.3f ay=%+7.3f az=%+7.3f", data.ax, data.ay, data.az);
+            ESP_LOGV (TAG, "LIS3DH (xyz)[g] ax=%+7.3f ay=%+7.3f az=%+7.3f", data.ax, data.ay, data.az);
         }
         
         vTaskDelay(pdMS_TO_TICKS(100));
