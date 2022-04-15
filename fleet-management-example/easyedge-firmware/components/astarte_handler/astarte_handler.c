@@ -63,18 +63,22 @@ astarte_handler_t* astarte_handler_create () {
         .hwid                           = (char *) encoded_hwid
     };
 
+    // Creating astarte device
     device  = astarte_device_init (&cfg);
-
     free(encoded_hwid);
-
     if (!device) {
         ESP_LOGE (TAG, "Cannot init astarte device");
         goto astarte_init_error;
     }
 
-    // FIXME TODO ESP_ERROR_CHECK(add_interfaces(device));
-    handler = malloc (sizeof(astarte_handler_t));
+    // Adding interfaces
+    ESP_ERROR_CHECK (_add_interface(device, &PositioningData_INTERFACE));
+    ESP_ERROR_CHECK (_add_interface(device, &MachinerySession_INTERFACE));
+    ESP_ERROR_CHECK (_add_interface(device, &MachineryStatus_INTERFACE));
+    ESP_ERROR_CHECK (_add_interface(device, &MachineryAlert_INTERFACE));
 
+    // Creating astarte handler
+    handler = malloc (sizeof(astarte_handler_t));
     if (!handler) {
         ESP_LOGE(TAG, "Cannot allocate astarte handler");
         goto astarte_init_error;

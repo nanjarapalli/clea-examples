@@ -47,7 +47,38 @@ typedef struct astarte_handler_s {
 } astarte_handler_t;
 
 
-// TODO Defining astarte interfaces
+// Defining astarte interfaces
+static astarte_interface_t PositioningData_INTERFACE  = {
+    .name           = "ai.clea.examples.PositioningData",
+    .major_version  = 0,
+    .minor_version  = 1,
+    .ownership      = OWNERSHIP_DEVICE,
+    .type           = TYPE_DATASTREAM
+};
+
+static astarte_interface_t MachinerySession_INTERFACE = {
+    .name           = "ai.clea.examples.MachinerySession",
+    .major_version  = 0,
+    .minor_version  = 1,
+    .ownership      = OWNERSHIP_DEVICE,
+    .type           = TYPE_PROPERTIES
+};
+
+static astarte_interface_t MachineryStatus_INTERFACE  = {
+    .name           = "ai.clea.examples.MachineryStatus",
+    .major_version  = 0,
+    .minor_version  = 1,
+    .ownership      = OWNERSHIP_DEVICE,
+    .type           = TYPE_PROPERTIES
+};
+
+static astarte_interface_t MachineryAlert_INTERFACE   = {
+    .name           = "ai.clea.examples.MachineryAlert",
+    .major_version  = 0,
+    .minor_version  = 1,
+    .ownership      = OWNERSHIP_DEVICE,
+    .type           = TYPE_DATASTREAM
+};
 /* EXAMPLE
 const static astarte_interface_t acc_data_interface = {
     .name = "ai.clea.examples.Accelerometer",
