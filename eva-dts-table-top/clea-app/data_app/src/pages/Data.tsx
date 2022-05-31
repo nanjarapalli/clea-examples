@@ -88,7 +88,7 @@ const Data: React.FC<DataProps> = ({ deviceId, astarteClient }: DataProps) => {
   };
 
   useEffect(() => {
-    const fetchIntervalTime = 5000; // ms
+    const fetchIntervalTime = 15000; // ms
 
     // Get data immediately the first time
     getBeverageData();
@@ -157,6 +157,8 @@ const Data: React.FC<DataProps> = ({ deviceId, astarteClient }: DataProps) => {
       ])
     );
     setProductsOverview(productsOverview);
+
+    console.log("\n\nRetrieved and shown data!")
   };
 
   return (
