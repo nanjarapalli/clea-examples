@@ -205,7 +205,12 @@ const PredictiveMaintenance: React.FC<ActionDetectorProps> = ({ thresholds, devi
                 </div>
                 <div className="col">
                   {airPollution ? (
-                    <AirMeasurementCard title="Air Pollution" unit="μg/m3" value={airPollution.value}></AirMeasurementCard>
+                    <AirMeasurementCard
+                      title="Air Pollution"
+                      unit="μg/m3"
+                      thresholds={{ warning: 20, danger: 35 }}
+                      value={airPollution.value}
+                    ></AirMeasurementCard>
                   ) : (
                     <Card>
                       <h3>Loading</h3>
