@@ -55,13 +55,11 @@ export const MainApp = ({ sceneSettings, updateInterval, astarteClient, deviceId
 
         // Updating chart with incoming data
         setViz (viz => {
-            let new_viz = {
-                data    : _.map (historical_data_cache, (h) => {
-                    return h
-                })
-            }
+            let new_data    = _.map (historical_data_cache, (h) => {
+                return h
+            })
             
-            return new_viz
+            return {...viz, data:new_data}
         })
     }
     
@@ -173,10 +171,8 @@ export const MainApp = ({ sceneSettings, updateInterval, astarteClient, deviceId
             const resizeChart = () => {
                 const domRect = chartRef.current.getBoundingClientRect();
                 let new_width   = domRect.width
-                let new_heigth  = new_width*6/16
-                setViz(viz => {
-                    return { ...viz, width: new_width, height:new_heigth }
-                });
+                let new_heigth  = new_width*10/16
+                setViz(viz => {return { ...viz, width: new_width, height:new_heigth }});
             }
             window.addEventListener("resize", resizeChart);
 
@@ -370,7 +366,8 @@ const chartOptions = {
                 let d   = new Date(time)
                 return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
             }
-        }
+        },
+        rotate  : 0
     },
     yaxis: {
         labels: {
