@@ -558,8 +558,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
             }
 
             _.map (data, (item, idx) => {
-                let curr_date   = new Date (item["timestamp"])
-                let item_hour   = Number (curr_date.toLocaleTimeString([], {hour: '2-digit'}))
+                let item_hour   = Number (new Date (item["timestamp"]).getHours())
                 results[item_hour] += item['people_count']
                 item_per_unit[item_hour] += 1
             })
@@ -576,7 +575,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                 let item_day    = curr_date.getDay()
                 results[item_day] += item['people_count']
                 item_per_unit[item_day] += 1
-                console.log (`item_day: ${item_day}`)
+                //console.log (`item_day: ${item_day}`)
             })
         }
         else if (filter_grain == 2) {
@@ -590,7 +589,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                 let item_date   = new Date (item['timestamp']).getDate()
                 results[item_date] += item['people_count']
                 item_per_unit[item_date] += 1
-                console.log (`item_day: ${item_date}`)
+                //console.log (`item_day: ${item_date}`)
             })
         }
         else {
@@ -636,7 +635,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                     set_stats_desc ((desc) => {return {...desc, data:data_analyzer(data)}})
             })
             .catch ((err) => {
-                console.error (`Cannot retrieve data fro msuch period`)
+                console.error (`Cannot retrieve data from such period`)
                 set_stats_desc ((desc) => {return {...desc, data:[]}})
             })
         }
