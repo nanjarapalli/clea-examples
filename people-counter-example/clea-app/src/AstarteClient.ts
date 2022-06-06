@@ -65,7 +65,8 @@ class AstarteClient {
             headers : {
                 "Authorization" : `Bearer ${token}`,
                 "Content-Type"  : "application/json;charset=UTF-8",
-            }
+            },
+            validateStatus : (status) => {return true}
         }).then ((response) => {
             let scene_zones     = response.data.data["scene_zones"]
             let parsed_zones    = []
@@ -91,7 +92,8 @@ class AstarteClient {
             headers : {
                 "Authorization" : `Bearer ${token}`,
                 "Content-Type"  : "application/json;charset=UTF-8",
-            }
+            },
+            validateStatus : (status) => {return true}
         }).then ((response) => {
             return response.data.data["update_interval"]
         })
@@ -129,7 +131,8 @@ class AstarteClient {
                 headers : {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json;charset=UTF-8",
-                }
+                },
+                validateStatus : (status) => {return true}
             }))
 
             // Updating start and end date
@@ -172,7 +175,7 @@ class AstarteClient {
                 }
             } catch (err) {
                 // Do nothing
-                console.warn (`Catched an error`)
+                console.warn (`Catched another error`)
             }
         }
 
@@ -207,6 +210,7 @@ class AstarteClient {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json;charset=UTF-8",
             },
+            validateStatus : (status) => {return true}
         }).then((response) => {
             return response.data.data;
         });
