@@ -55,13 +55,11 @@ export const MainApp = ({ sceneSettings, updateInterval, astarteClient, deviceId
 
         // Updating chart with incoming data
         setViz (viz => {
-            let new_viz = {
-                data    : _.map (historical_data_cache, (h) => {
-                    return h
-                })
-            }
+            let new_data    = _.map (historical_data_cache, (h) => {
+                return h
+            })
             
-            return new_viz
+            return {...viz, data:new_data}
         })
     }
     
@@ -173,10 +171,8 @@ export const MainApp = ({ sceneSettings, updateInterval, astarteClient, deviceId
             const resizeChart = () => {
                 const domRect = chartRef.current.getBoundingClientRect();
                 let new_width   = domRect.width
-                let new_heigth  = new_width*6/16
-                setViz(viz => {
-                    return { ...viz, width: new_width, height:new_heigth }
-                });
+                let new_heigth  = new_width*10/16
+                setViz(viz => {return { ...viz, width: new_width, height:new_heigth }});
             }
             window.addEventListener("resize", resizeChart);
 
@@ -370,7 +366,8 @@ const chartOptions = {
                 let d   = new Date(time)
                 return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
             }
-        }
+        },
+        rotate  : 0
     },
     yaxis: {
         labels: {
@@ -558,8 +555,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
             }
 
             _.map (data, (item, idx) => {
-                let curr_date   = new Date (item["timestamp"])
-                let item_hour   = Number (curr_date.toLocaleTimeString([], {hour: '2-digit'}))
+                let item_hour   = Number (new Date (item["timestamp"]).getHours())
                 results[item_hour] += item['people_count']
                 item_per_unit[item_hour] += 1
             })
@@ -576,7 +572,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                 let item_day    = curr_date.getDay()
                 results[item_day] += item['people_count']
                 item_per_unit[item_day] += 1
-                console.log (`item_day: ${item_day}`)
+                //console.log (`item_day: ${item_day}`)
             })
         }
         else if (filter_grain == 2) {
@@ -590,7 +586,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                 let item_date   = new Date (item['timestamp']).getDate()
                 results[item_date] += item['people_count']
                 item_per_unit[item_date] += 1
-                console.log (`item_day: ${item_date}`)
+                //console.log (`item_day: ${item_date}`)
             })
         }
         else {
@@ -636,7 +632,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                     set_stats_desc ((desc) => {return {...desc, data:data_analyzer(data)}})
             })
             .catch ((err) => {
-                console.error (`Cannot retrieve data fro msuch period`)
+                console.error (`Cannot retrieve data from such period`)
                 set_stats_desc ((desc) => {return {...desc, data:[]}})
             })
         }
