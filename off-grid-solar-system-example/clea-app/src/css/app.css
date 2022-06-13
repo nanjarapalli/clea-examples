@@ -1,0 +1,20 @@
+
+.card-container {
+    color: white;
+}
+.card-title {
+    font-size: 1.25rem;
+}
+.card-value {
+    font-size: 2rem;
+}
+
+.card-info{
+    background-color: #0dcaf0;
+}
+.card-day {
+    background-color: #ffc107;
+}
+.card-night {
+    background-color: #020079;
+}
