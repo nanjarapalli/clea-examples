@@ -17,7 +17,7 @@
         },
         {
             "endpoint": "/current",
-            "type": "string",
+            "type": "double",
             "reliability":"unique",
             "retention":"volatile",
             "expiry":60,
