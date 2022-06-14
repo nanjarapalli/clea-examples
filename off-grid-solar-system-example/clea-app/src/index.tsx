@@ -19,10 +19,10 @@ const messages              = { en, it };
 const {useEffect, useMemo}  = React;
 
 type AppProps = {
-    astarteUrl: URL;
+    astarteURL: URL;
     realm: string;
     token: string;
-    deviceId: string;
+    deviceID: string;
 };
 
 type Settings = {
@@ -38,12 +38,12 @@ enum PartOfTheDay   {
 
 
 
-const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
+const App = ({ astarteURL, realm, token, deviceID }: AppProps) => {
     
     // Setting up astarteClient
     const astarteClient = useMemo(() => {
-        return new AstarteClient({ astarteUrl, realm, token });
-    }, [astarteUrl, realm, token]);
+        return new AstarteClient({ astarteURL, realm, token, deviceID});
+    }, [astarteURL, realm, token]);
 
 
     useEffect(() => {
@@ -53,7 +53,7 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
 
     return (
         <Fragment>
-            <MainApp astarteClient={astarteClient} deviceId={deviceId}/>
+            <MainApp astarteClient={astarteClient}/>
         </Fragment>
     );
 };
