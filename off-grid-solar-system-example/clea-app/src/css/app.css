@@ -5,12 +5,15 @@
 .card-title {
     font-size: 1.25rem;
 }
+.card-subtitle {
+    font-size: .75rem;
+}
 .card-value {
     font-size: 2rem;
 }
 
 .card-info{
-    background-color: #0dcaf0;
+    background-color: #26a5e0;
 }
 .card-day {
     background-color: #ffc107;
