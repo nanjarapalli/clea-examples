@@ -3,96 +3,332 @@ import "core-js/stable"
 import "regenerator-runtime/runtime"
 import React, { Fragment } from "react";
 import { Button, Col, Container, Card, Row, InputGroup, FormControl, ToggleButton,
-            ToggleButtonGroup, Spinner, Navbar, Nav} from "react-bootstrap";
+            ToggleButtonGroup, Spinner, Navbar, Nav, ButtonGroup, ButtonToolbar} from "react-bootstrap";
 import { FormattedMessage } from "react-intl";
 import Chart from "react-apexcharts";
 import DatePicker from "react-datepicker";
 import DatePickerStyle from "react-datepicker/dist/react-datepicker.css";
 import {BsSunFill, BsMoonFill} from 'react-icons/bs';
-import _ from 'lodash';
+import {FaRegCalendarAlt} from 'react-icons/fa';
+import _, { first } from 'lodash';
 
 // Global variables
+const EXTERNAL_SENSORS_UPDATE_DELAY_MS  = 4000;
+const STATISTICS_RETRIEVER_DELAY_MS     = 60000;
+const MS_IN_A_MINUTE                    = 60*1000
+const MS_IN_10_MINUTES                  = 10*60*1000
+const MS_IN_AN_HOUR                     = 60*60*1000
+const MS_IN_12_HOURS                    = 12*60*60*1000
+const MS_IN_24_HOURS                    = 24*60*60*1000
+const MS_IN_7_DAYS                      = 7*24*60*60*1000
+let statisticsRetrieverTimer            = null;
 
 
 
 
-export const MainApp = ({astarteClient, deviceId}) => {
+export const MainApp = ({astarteClient}) => {
     const infoColor     = "#0dcaf0";
     const dayColor      = "#ffc107";
     const nightColor    = "#020079";
 
-    // Top part: external sensors cards
+    // ========    Top part: external sensors cards
     const externalSensorsDescriptors    = {
         temperature     : {
                             value           : React.useState(null),
-                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue},
+                            valueTimestamp  : React.useState(null),
                             text            : "Temperature",
-                            className       : (currValue) => {return "card-info rounded"}
+                            lastUpdate      : new Date(),
+                            query           : (date) => {return astarteClient.getTemperature(date)},
+                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue+"°"},
+                            className       : (currValue) => {return "card-info rounded shadow"}
                         },
         windSpeed      : {
-                            value           : React.useState(0),
-                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue},
-                            text            : "Wind speed",
-                            className       : (currValue) => {return "card-info rounded"}
+                            value           : React.useState(null),
+                            valueTimestamp  : React.useState(null),
+                            text            : "Wind Velocity",
+                            lastUpdate      : new Date(),
+                            query           : (date) => {return astarteClient.getWindSpeed(date)},
+                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue+" m/s"},
+                            className       : (currValue) => {return "card-info rounded shadow"}
                         },
         refSolarCell    : {
-                            value           : React.useState(0),
-                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue},
-                            text            : "Reference solar cell",
-                            className       : (currValue) => {return "card-info rounded"}
+                            value           : React.useState(null),
+                            valueTimestamp  : React.useState(null),
+                            text            : "Reference Electrical Current",
+                            lastUpdate      : new Date(),
+                            query           : (date) => {return astarteClient.getReferenceCellCurrent(date)},
+                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue+" A"},
+                            className       : (currValue) => {return "card-info rounded shadow"}
                         },
-        partOfTheDay    : {
+        dayPeriod       : {
+                            // TODO Handle unknown value of day period
                             value           : React.useState(1),
+                            valueTimestamp  : React.useState(null),
+                            text            : "Day / Night",
+                            lastUpdate      : new Date(),
+                            query           : (date) => {return astarteClient.getDayPeriod(date)},
                             displayValue    : (currValue) => {return currValue==0 ? <BsMoonFill size={43} color="white"/>
                                                                                     : <BsSunFill size={43} color="white"/>},
-                            text            : "Day/Night",
-                            className       : (currValue) => {return (currValue==0 ? "card-night" : "card-day") + " rounded"}
+                            className       : (currValue) => {return (currValue==0 ? "card-night" : "card-day") + " rounded shadow"}
         }
     }
 
-    // Bottom part: statistics chart
+    // ========    Bottom part: statistics selectors
+    const statsSourceSelectors          = {
+        solarPanel      : {
+            onClick : (evt) => {setStatsSource(Number(evt.target.value))},
+            value       : 0,
+            text        : "Solar Panel"
+        },
+        battery         : {
+            onClick : (evt) => {setStatsSource(Number(evt.target.value))},
+            value   : 1,
+            text    : "Battery"
+        },
+        electricalLoad  : {
+            onClick : (evt) => {setStatsSource(Number(evt.target.value))},
+            value   : 2,
+            text    : "Electrical Load"
+        }
+    }
     const [statsSource, setStatsSource] = React.useState(0);
+    const statsData                     = [
+        {   // 0: solarPanel
+            dataRetrieverCallback   : (since, to) => {return astarteClient.getSolarPanelData(since, to)},
+            /*startDate               : null,
+            endDate                 : null,
+            data                    : null*/
+        },
+        {   // 1: battery
+            dataRetrieverCallback   : (since, to) => {return astarteClient.getBatteryData(since, to)},
+            /*startDate               : null,
+            endDate                 : null,
+            data                    : null*/
+        },
+        {   // 2: electricalLoad
+            dataRetrieverCallback   : (since, to) => {return astarteClient.getElectricalLoadData(since, to)},
+            /*startDate               : null,
+            endDate                 : null,
+            data                    : null*/
+        }
+    ]
+    
+    // ========    Bottom part: chart filters buttons
+    const controlButtonsDescriptors       = {
+        unitSelectors : [
+            {name:"Electricity", value:0},
+            {name:"Voltage", value:1},
+            {name:"All", value:2},
+        ],
+        periodSelectors : [
+            {name:"Day", value:0},
+            {name:"Week", value:1},
+            {name:"Month", value:2},
+            // FIXME {name:"Year", value:3},
+        ]
+    }
+    const [shownUnit, setShownUnit]     = React.useState(0);
+    const [shownPeriod, setShownPeriod] = React.useState(0);
+    const [dateRange, setDateRange]     = React.useState([new Date(new Date().getTime() - MS_IN_24_HOURS), new Date()]);
+    const [startDate, endDate]          = dateRange;
+    let dateChanged                     = false;            // FIXME If date change, automatic data increment aren't performed
+
+    // ========    Bottom part: chart
     const chartContainerRef             = React.useRef(null);
-    const chartRef                      = React.useRef(null);
     const [chartReady, setChartReady]   = React.useState(false);
-    const [chartDesc, setChartDesc]     = React.useState({ height: 350, data: [] });
+    const [chartDesc, setChartDesc]     = React.useState({width:0, height: 0, rawData: []});
 
 
+    // =============================
+    // ========    Utility functions
+
+    const createButtonGroup = (buttonGroup, idxPrefix, stateVar, setStateVar) => {
+        return (
+        <ButtonGroup className="text-center mb-3">
+            {buttonGroup.map((el, idx) => (
+                <ToggleButton variant='light' key={`${idxPrefix}-${idx}`} id={`${idxPrefix}-${idx}`}
+                    type='radio' name={el.name} value={el.value}
+                    checked={el.value === stateVar}
+                    ref={el.button_ref}
+                    onChange={(e) => {setStateVar(el.value)}}>
+                        {el.name}
+                </ToggleButton>)
+            )}
+        </ButtonGroup>)
+    }
+
+
+    /*FIXME Remove me!
     const getChartWidth = () => {
         if (chartReady) {
             const domRect   = chartRef.current.getBoundingClientRect();
             return domRect.width;
         }
         return 550;
+    }*/
+
+    
+    const externalSensorsUpdater    = (firstTime) => {
+        let itemStatusUpdater   = (sensorItem, newItem) => {
+            sensorItem.lastUpdate   = new Date()
+            sensorItem.value[1] (newItem.sensorValue)
+            sensorItem.valueTimestamp[1] (new Date (newItem.timestamp))
+        }
+
+        if (firstTime) {
+            // Searching data until 7 days ago
+            let sinceTreshold           = new Date (new Date().getTime() - (MS_IN_7_DAYS))
+
+            _.map (externalSensorsDescriptors, async (item, idx) => {
+                let response    = []
+                let since       = new Date();
+                while (response.length==0 && since>sinceTreshold) {
+                    try {
+                        since       = new Date(since.getTime() - MS_IN_24_HOURS)
+                        console.log (`Searching data from ${since}`)
+                        response    = await item.query(since);
+                    } catch (err) {console.warn ("catched error!")}
+                }
+
+                if (response.length == 0) {
+                    console.warn (`No data until 7 days!`)
+                }
+                else {
+                    // Updating item status
+                    itemStatusUpdater (item, response[response.length-1])
+                }
+            })
+        }
+        
+        
+        else {
+            _.map (externalSensorsDescriptors, async (item, idx) => {
+                try {
+                    let response    = await item.query(item.lastUpdate);
+                    // Updating item status
+                    itemStatusUpdater (item, response[response.length-1])
+                } catch (err) {}
+            })
+        }
     }
 
 
-    // Handling statsSource update
-    React.useEffect(() => {
-        console.log (`statsSource changed: ${statsSource}`)
-    }, [statsSource]);
+    const statisticsRetriver        = async () => {
+        // FIXME Update data only if currDate is comprised between startDate and endDate
+        // FIXME If 'dateChanged == false', adjust start and end date!
+
+        console.log (`============================\nCall of statisticsRetriever\n============================`)
+        let dataItem    = statsData[statsSource];
+
+        try {
+            let response    = await dataItem.dataRetrieverCallback (startDate, endDate)
+            dataItem.data   = response;
+        } catch (err) {
+            console.warn (`Catched error: ${err}`)
+            dataItem.data   = []
+        }
+
+        // Updating chartDesc.data entry
+        setChartDesc ((desc) => {return {...desc, rawData:dataItem.data}})
+    }
 
 
+    const setupListeners    = () => {
+
+        externalSensorsUpdater (true);
+        // Setting up interval to retrieve exteenal sensors values
+        setInterval (externalSensorsUpdater, EXTERNAL_SENSORS_UPDATE_DELAY_MS, false);
+
+        
+        // Retrieve current data basing on source, and period
+        statisticsRetriver();
+        // Register interval to retrieve new data
+        statisticsRetrieverTimer = setInterval (statisticsRetriver, STATISTICS_RETRIEVER_DELAY_MS);
+    }
+
+
+    const lastUpdateToString    = (date) => {
+        let delayValue  = "Unknown"
+        if (date) {
+            let currDate    = new Date()
+            delayValue      = "Last update: "
+            if (date.getTime() > currDate.getTime()-MS_IN_A_MINUTE)
+                delayValue += "less than 1 minutes ago"
+            else if (date.getTime() > currDate.getTime()-MS_IN_10_MINUTES)
+                delayValue += "less than 10 minutes ago"
+            else if (date.getTime() > currDate.getTime()-MS_IN_AN_HOUR)
+                delayValue += "less than an hour ago"
+            else if (date.getTime() > currDate.getTime()-MS_IN_12_HOURS)
+                delayValue += "less than 12 hours ago"
+            else if (date.getTime() > currDate.getTime()-MS_IN_24_HOURS)
+                delayValue += "less than 24 hours ago"
+            else if (date.getTime() > currDate.getTime()-MS_IN_7_DAYS)
+                delayValue += "less than 7 days ago"
+            else
+                delayValue += "more than 7 days ago"
+        }
+
+        return delayValue
+    }
+
+
+    const rangeToString = (range) => {
+        let startDateString = startDate ? startDate.toDateString() : "";
+        let endDateString   = endDate ? endDate.toDateString() : "";
+        return `${startDateString}   -   ${endDateString}`
+    }
+
+
+    const dateUpdater   = (range) => {
+        console.log ("==================\nDATA CHANGED!!!!!!\n==================")
+        dateChanged = true;
+        let sd  = range[0]
+        let ed  = range[1]
+        if (ed) {
+            ed.setHours (23)
+            ed.setMinutes (59)
+            ed.setSeconds(59)
+            ed.setMilliseconds (999)
+        }
+        setDateRange ((oldRange) => {return [sd, ed]})
+    }
+
+
+
+
+    // =========================
+    // ========    Data handlers
+
+    // Handling statsSource, showUnit and showPeriod variables update
     React.useEffect(() => {
-        console.log (chartContainerRef)
-        console.log (chartContainerRef.current)
-    }, [chartContainerRef]);
+        console.log (`Something changed: (entually) reloading displayed data!\n\
+\tstatsSource: ${statsSource}\n\tshowUnit: ${shownUnit}\n\tshowPeriod: ${shownPeriod}\n\tdateRange: [${endDate}, ${startDate}]`)
+
+        clearInterval (statisticsRetrieverTimer);
+        statisticsRetriver ();
+        statisticsRetrieverTimer    = setInterval (statisticsRetriver, STATISTICS_RETRIEVER_DELAY_MS);
+    }, [statsSource, shownUnit, shownPeriod, dateRange]);
 
 
     React.useEffect(() => {
         if (chartContainerRef.current) {
-            console.log (`Setting up resize..`)
             const resizeChart   = () => {
-                console.log (`Resizing!`)
                 const domRect   = chartContainerRef.current.getBoundingClientRect()
-                let newHeight   = domRect.width*6/16
-                console.log (`w: ${domRect.width}\th:${newHeight}`)
+                let newWidth    = domRect.width
+                let newHeight   = newWidth*6/16
+                console.log (`w: ${newWidth}\th:${newHeight}`)
                 setChartDesc (desc  => {
-                    return {...desc, height:newHeight}
+                    return {...desc, width:newWidth, height:newHeight}
                 })
             }
-            window.addEventListener("resize", resizeChart);
 
+            // Setting up
+            setupListeners();
+
+            window.addEventListener("resize", resizeChart);
+            resizeChart();
+
+            // Returning clean up function
             return () => {
                 window.removeEventListener("resize", resizeChart, false);
             }
@@ -112,7 +348,8 @@ export const MainApp = ({astarteClient, deviceId}) => {
                                     <Card.Body>
                                         <div className="card-container">
                                             <div>
-                                                <div className="card-title">{item.text}</div>
+                                                <div className="card-title mb-0 pb-0">{item.text}</div>
+                                                <div className="card-subtitle mt-0 pt-0">{lastUpdateToString(item.valueTimestamp[0])}</div>
                                                 <div className="d-flex justify-content-end card-value">{item.displayValue(item.value[0])}</div>
                                             </div>
                                         </div>
@@ -124,38 +361,67 @@ export const MainApp = ({astarteClient, deviceId}) => {
                 </Row>
 
                 <Row className="mt-5">
+                    {/*Statistics source selector*/}
                     <Col sm={2} md={2}>
-                        <Card>
-                            <Nav variant="pills" defaultActiveKey="0" className="flex-column"
-                                onSelect={(eventKey) => {setStatsSource(eventKey)}}>
-                                <Nav.Item className="p-2">
-                                    <Nav.Link eventKey="0">Solar Panel</Nav.Link>
-                                </Nav.Item>
-
-                                <Nav.Item className="p-2">
-                                    <Nav.Link eventKey="1">Battery</Nav.Link>
-                                </Nav.Item>
-
-                                <Nav.Item className="p-2">
-                                    <Nav.Link eventKey="2">Eectrical Load</Nav.Link>
-                                </Nav.Item>
+                        <Card className="ps-2 pe-2 pb-1 pt-1 shadow">
+                            <Nav variant="pills" defaultActiveKey="0" className="flex-column">
+                                {_.map (statsSourceSelectors, (item, idx) => {
+                                    return (
+                                    <Button className={(statsSource==item.value?"card-info" : "")+" m-2 d-flex justify-content-left"}
+                                                key={idx} variant="" onClick={item.onClick} value={item.value}>
+                                            {item.text}
+                                        </Button>
+                                    )
+                                })}
                             </Nav>
                         </Card>
                     </Col>
                     
                     <Col sm={10} md={10}>
-                        <Card>
-                            <Container className="d-flex justify-content-center" ref={chartContainerRef}>
-                                {(chartDesc.data == null || chartDesc.data.length == 0) ?
-                                        (
-                                            <Spinner className="m-5" animation="border" role="status">
-                                                <span className="visually-hidden">Loading...</span>
-                                            </Spinner>
-                                        )
-                                        :
-                                        <DataChart></DataChart>
-                                    }
-                            </Container>
+
+                        <Card className="p-3 shadow">
+                            <Card.Body>
+                                <ButtonToolbar className="d-flex justify-content-between">
+                                    
+                                    <div>
+                                        {/*ELECTRICITY, VOLTAGE, ALL buttons*/}
+                                        {createButtonGroup (controlButtonsDescriptors.unitSelectors,
+                                                                "us", shownUnit, setShownUnit)}
+                                    </div>
+
+                                    <div className="d-flex justify-content-between">
+                                        {/*DATE SELECTOR buttons*/}
+                                        {createButtonGroup (controlButtonsDescriptors.periodSelectors,
+                                                                "ps", shownPeriod, setShownPeriod)}
+
+                                        {/*DATE PICKER*/}
+                                        <style>{DatePickerStyle.toString()}</style>
+                                        <DatePicker
+                                            showMonthYearPicker={shownPeriod==2}
+                                            selectsRange={true}
+                                            startDate={startDate}
+                                            endDate={endDate}
+                                            onChange= {dateUpdater}
+                                            className="mb-3 ms-5"
+                                            customInput={
+                                                <Button variant='light'>
+                                                    <FaRegCalendarAlt size={20}/>
+                                                </Button>
+                                            }
+                                        />
+                                    </div>
+                                
+                                </ButtonToolbar>
+
+                                <div className="d-flex justify-content-end pe-3">
+                                    {rangeToString(dateRange)}
+                                </div>
+
+                                <Container className="d-flex justify-content-center" ref={chartContainerRef}>
+                                    <DataChart data={chartDesc.rawData} width={chartDesc.width}
+                                                height={chartDesc.height}/>
+                                </Container>
+                            </Card.Body>
                         </Card>
                     </Col>
                 </Row>
@@ -196,6 +462,7 @@ export const MainApp = ({astarteClient, deviceId}) => {
             DATA CHART SETTINGS
     =================================== */
 
+// TODO Customize chart settings
 const chartOptions = {
     chart: {
         id: 'people',
@@ -207,7 +474,7 @@ const chartOptions = {
             autoScaleYaxis: true
         },
         toolbar: {
-            autoSelected: 'zoom'
+            show: false
         }
     },
     stroke: {
@@ -220,10 +487,6 @@ const chartOptions = {
     },
     markers: {
         size: 0,
-    },
-    title: {
-        text: 'People',
-        align: 'left'
     },
     tooltip: {
         shared: false,
@@ -252,19 +515,23 @@ const chartOptions = {
 };
 
 
-// Function that act as a component
-const DataChart = ({ data, width, height, isMount = false }) => {
+const DataChart = ({data, width, height}) => {
 
-    if (data.length === 0) {
+    // TODO Display data correctly
+    if (!data) {
+        console.log (`No data exist`)
+
         return (
-            <div>
-                <FormattedMessage id="no_data" defaultMessage="No recent data" />
-            </div>
+            <Spinner className="m-5" animation="border" role="status">
+                <span className="visually-hidden">Loading...</span>
+            </Spinner>
         );
     }
 
     const series = React.useMemo(
         () => {
+            console.log (`--> Displaying retrieved data`)
+            console.log (data)
             
             return [
                 {
@@ -280,6 +547,91 @@ const DataChart = ({ data, width, height, isMount = false }) => {
         <Chart type="line" width={width} height={height} options={chartOptions} series={series} />
     );
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
