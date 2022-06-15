@@ -27,7 +27,6 @@ class AstarteClient {
 
 
     constructor({astarteURL, realm, token, deviceID}: AstarteClientProps) {
-        console.log (`astarteURL: ${astarteURL}`)
         this.config = {
             astarteURL,
             realm,
@@ -61,7 +60,6 @@ class AstarteClient {
         }
         requestURL.search = new URLSearchParams(query).toString();
         
-        console.log (`Querying to ${requestURL.toString()}`)
         return axios ({
             method  : "get",
             url     : requestURL.toString(),
@@ -161,21 +159,38 @@ class AstarteClient {
 
 
     async getTemperature (since:Date) {
-        // TODO
+        return this.performQuery ({since}, this.EXTERNAL_SENSORS_INTERFACE, "temperature");
     }
-
 
     async getWindSpeed (since:Date) {
-        // TODO
+        return this.performQuery ({since}, this.EXTERNAL_SENSORS_INTERFACE, "wind_velocity");
     }
-
-
+    
     async getReferenceCellCurrent(since: Date) {
-        // TODO
+        return this.performQuery ({since}, this.EXTERNAL_SENSORS_INTERFACE, "reference_electrical_current");
+    }
+    
+    async getDayPeriod(since:Date) {
+        return this.performQuery ({since}, this.EXTERNAL_SENSORS_INTERFACE, "day_period");
     }
 
-    async getDayPeriod(since:Date) {
-        // TODO
+
+    async getSolarPanelData (since:Date, to:Date) {
+        // TODO Retrieve by parts
+        return this.performQuery ({since, to}, this.PANEL_STATISTICS_INTERFACE, "")
+    }
+
+
+    async getBateryData (since:Date, to:Date) {
+        // TODO Retrieve by parts
+        return this.performQuery ({since, to}, this.BATTERY_STATISTICS_INTERFACE, "")
+    }
+
+
+    async getElectricalLoadData (since:Date, to:Date) {
+        // TODO Retrieve by parts
+        return this.performQuery ({since, to}, this.LOAD_STATISTICS_INTERFACE, "")
+        return []
     }
 }
 
