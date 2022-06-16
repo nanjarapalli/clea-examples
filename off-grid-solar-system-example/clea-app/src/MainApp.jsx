@@ -279,16 +279,23 @@ export const MainApp = ({astarteClient}) => {
     }
 
 
+    const endOfDay  = (day) => {
+        let newDay  = new Date(day)
+        newDay.setHours (23)
+        newDay.setMinutes (59)
+        newDay.setSeconds (59)
+        newDay.setMilliseconds (999)
+        return newDay
+    }
+
+
     const dateUpdater   = (range) => {
         console.log ("==================\nDATA CHANGED!!!!!!\n==================")
         dateChanged = true;
         let sd  = range[0]
         let ed  = range[1]
         if (ed) {
-            ed.setHours (23)
-            ed.setMinutes (59)
-            ed.setSeconds(59)
-            ed.setMilliseconds (999)
+            ed  = endOfDay(ed)
         }
         setDateRange ((oldRange) => {return [sd, ed]})
     }
@@ -302,7 +309,7 @@ export const MainApp = ({astarteClient}) => {
     // Handling statsSource, showUnit and showPeriod variables update
     React.useEffect(() => {
         console.log (`Something changed: (entually) reloading displayed data!\n\
-\tstatsSource: ${statsSource}\n\tshowUnit: ${shownUnit}\n\tshowPeriod: ${shownPeriod}\n\tdateRange: [${endDate}, ${startDate}]`)
+\tstatsSource: ${statsSource}\n\tshowUnit: ${shownUnit}\n\tshowPeriod: ${shownPeriod}\n\tdateRange: [${startDate}, ${endDate}]`)
 
         clearInterval (statisticsRetrieverTimer);
         statisticsRetriver ();
@@ -401,6 +408,7 @@ export const MainApp = ({astarteClient}) => {
                                             selectsRange={true}
                                             startDate={startDate}
                                             endDate={endDate}
+                                            maxDate={endOfDay(new Date())}
                                             onChange= {dateUpdater}
                                             className="mb-3 ms-5"
                                             customInput={
