@@ -11,17 +11,21 @@ import DatePickerStyle from "react-datepicker/dist/react-datepicker.css";
 import {BsSunFill, BsMoonFill} from 'react-icons/bs';
 import {FaRegCalendarAlt} from 'react-icons/fa';
 import _, { first } from 'lodash';
+import { date } from "yup";
 
 // Global variables
 const EXTERNAL_SENSORS_UPDATE_DELAY_MS  = 4000;
-const STATISTICS_RETRIEVER_DELAY_MS     = 60000;
+//FIXME const STATISTICS_RETRIEVER_DELAY_MS     = 20000;
+const STATISTICS_RETRIEVER_DELAY_MS     = 10000;
 const MS_IN_A_MINUTE                    = 60*1000
-const MS_IN_10_MINUTES                  = 10*60*1000
-const MS_IN_AN_HOUR                     = 60*60*1000
-const MS_IN_12_HOURS                    = 12*60*60*1000
-const MS_IN_24_HOURS                    = 24*60*60*1000
-const MS_IN_7_DAYS                      = 7*24*60*60*1000
+const MS_IN_10_MINUTES                  = 10*MS_IN_A_MINUTE
+const MS_IN_AN_HOUR                     = 60*MS_IN_A_MINUTE
+const MS_IN_12_HOURS                    = 12*MS_IN_AN_HOUR
+const MS_IN_24_HOURS                    = 24*MS_IN_AN_HOUR
+const MS_IN_7_DAYS                      = 7*MS_IN_24_HOURS
+const MS_IN_31_DAYS                     = 31*MS_IN_24_HOURS
 let statisticsRetrieverTimer            = null;
+let externalSensorsUpdaterTimer         = null;
 
 
 
@@ -88,7 +92,7 @@ export const MainApp = ({astarteClient}) => {
         electricalLoad  : {
             onClick : (evt) => {setStatsSource(Number(evt.target.value))},
             value   : 2,
-            text    : "Electrical Load"
+            text    : "Load"
         }
     }
     const [statsSource, setStatsSource] = React.useState(0);
@@ -116,7 +120,7 @@ export const MainApp = ({astarteClient}) => {
     // ========    Bottom part: chart filters buttons
     const controlButtonsDescriptors       = {
         unitSelectors : [
-            {name:"Electricity", value:0},
+            {name:"Current", value:0},
             {name:"Voltage", value:1},
             {name:"All", value:2},
         ],
@@ -125,13 +129,12 @@ export const MainApp = ({astarteClient}) => {
             {name:"Week", value:1},
             {name:"Month", value:2},
             // FIXME {name:"Year", value:3},
+            // VALUE 4: calendar
         ]
     }
-    const [shownUnit, setShownUnit]     = React.useState(0);
+    const [shownUnit, setShownUnit]     = React.useState(2);
     const [shownPeriod, setShownPeriod] = React.useState(0);
     const [dateRange, setDateRange]     = React.useState([new Date(new Date().getTime() - MS_IN_24_HOURS), new Date()]);
-    const [startDate, endDate]          = dateRange;
-    let dateChanged                     = false;            // FIXME If date change, automatic data increment aren't performed
 
     // ========    Bottom part: chart
     const chartContainerRef             = React.useRef(null);
@@ -142,19 +145,22 @@ export const MainApp = ({astarteClient}) => {
     // =============================
     // ========    Utility functions
 
-    const createButtonGroup = (buttonGroup, idxPrefix, stateVar, setStateVar) => {
+    const createButtonGroup = (buttonGroup, idxPrefix, stateVar, changeCallback) => {
         return (
-        <ButtonGroup className="text-center mb-3">
+        // <ButtonGroup className="text-center mb-3">
+        <Navbar className="bg-light d-flex justify-content-end rounded">
             {buttonGroup.map((el, idx) => (
-                <ToggleButton variant='light' key={`${idxPrefix}-${idx}`} id={`${idxPrefix}-${idx}`}
-                    type='radio' name={el.name} value={el.value}
+                <ToggleButton variant='light' className={`ms-2 me-2 ${el.value === stateVar ? ' shadow text-primary' : 'text-dark'}`}
+                    key={`${idxPrefix}-${idx}`} id={`${idxPrefix}-${idx}`} type='radio' name={el.name} value={el.value}
                     checked={el.value === stateVar}
                     ref={el.button_ref}
-                    onChange={(e) => {setStateVar(el.value)}}>
+                    onChange={(e) => {changeCallback(el.value)}}>
                         {el.name}
                 </ToggleButton>)
             )}
-        </ButtonGroup>)
+        </Navbar>
+        // </ButtonGroup>
+        )
     }
 
 
@@ -185,9 +191,10 @@ export const MainApp = ({astarteClient}) => {
                 while (response.length==0 && since>sinceTreshold) {
                     try {
                         since       = new Date(since.getTime() - MS_IN_24_HOURS)
-                        console.log (`Searching data from ${since}`)
+                        //console.log (`Searching data from ${since}`)
+                        //console.log (`Searching data from ${since}`)
                         response    = await item.query(since);
-                    } catch (err) {console.warn ("catched error!")}
+                    } catch (err) {/*console.warn ("[ESU] catched error!")*/}
                 }
 
                 if (response.length == 0) {
@@ -214,36 +221,27 @@ export const MainApp = ({astarteClient}) => {
 
 
     const statisticsRetriver        = async () => {
-        // FIXME Update data only if currDate is comprised between startDate and endDate
-        // FIXME If 'dateChanged == false', adjust start and end date!
-
         console.log (`============================\nCall of statisticsRetriever\n============================`)
-        let dataItem    = statsData[statsSource];
-
+        let dataItem                = statsData[statsSource];
+        console.log (`date range`)
+        console.log (dateRange)
+        
+        if (!dateRange[0] || !dateRange[1]) {
+            console.log (`--> At least one invalid date..`);
+            return;
+        }
+        
         try {
-            let response    = await dataItem.dataRetrieverCallback (startDate, endDate)
+            console.log (`Querying data from\n\t${dateRange[0]}\nto\n\t${dateRange[1]}`)
+            let response    = await dataItem.dataRetrieverCallback (new Date(dateRange[0]), new Date(dateRange[1]))
             dataItem.data   = response;
         } catch (err) {
-            console.warn (`Catched error: ${err}`)
+            console.warn (`[SR] Catched error: ${err}`)
             dataItem.data   = []
         }
-
+        
         // Updating chartDesc.data entry
         setChartDesc ((desc) => {return {...desc, rawData:dataItem.data}})
-    }
-
-
-    const setupListeners    = () => {
-
-        externalSensorsUpdater (true);
-        // Setting up interval to retrieve exteenal sensors values
-        setInterval (externalSensorsUpdater, EXTERNAL_SENSORS_UPDATE_DELAY_MS, false);
-
-        
-        // Retrieve current data basing on source, and period
-        statisticsRetriver();
-        // Register interval to retrieve new data
-        statisticsRetrieverTimer = setInterval (statisticsRetriver, STATISTICS_RETRIEVER_DELAY_MS);
     }
 
 
@@ -272,10 +270,20 @@ export const MainApp = ({astarteClient}) => {
     }
 
 
-    const rangeToString = (range) => {
-        let startDateString = startDate ? startDate.toDateString() : "";
-        let endDateString   = endDate ? endDate.toDateString() : "";
+    const rangeToString = () => {   // FIXME Use range parametere
+        let startDateString = dateRange[0] ? dateRange[0].toDateString() : "";
+        let endDateString   = dateRange[1] ? dateRange[1].toDateString() : "";
         return `${startDateString}   -   ${endDateString}`
+    }
+
+
+    const startOfDay    = (day) => {
+        let newDay  = new Date(day)
+        newDay.setHours (0)
+        newDay.setMinutes (0)
+        newDay.setSeconds (0)
+        newDay.setMilliseconds (0)
+        return newDay
     }
 
 
@@ -290,14 +298,62 @@ export const MainApp = ({astarteClient}) => {
 
 
     const dateUpdater   = (range) => {
-        console.log ("==================\nDATA CHANGED!!!!!!\n==================")
-        dateChanged = true;
-        let sd  = range[0]
-        let ed  = range[1]
-        if (ed) {
-            ed  = endOfDay(ed)
+        let copyCurrTime    = (source) => {
+            let d   = new Date()
+            source.setHours (d.getHours())
+            source.setMinutes (d.getMinutes())
+            source.setSeconds (d.getSeconds())
+            source.setMilliseconds (d.getMilliseconds())
+            return source
         }
-        setDateRange ((oldRange) => {return [sd, ed]})
+
+        let sd  = new Date(range[0])
+        let ed  = null
+
+        sd  = copyCurrTime (new Date(range[0]))
+        if (range[1]) {
+            ed  = copyCurrTime (new Date(range[1]))
+        }
+
+        setDateRange ([sd, ed])
+    }
+
+
+    const periodSelector    = (currValue) => {
+        //console.log (`Called periodSelector with param: ${currValue}`)
+        setShownPeriod(currValue)
+        // Adjusting also start and end date basing on currVal
+        let ed  = new Date()
+        let sd  = new Date()
+        switch (currValue) {
+            case 0:
+                // DAY:
+                sd  = new Date(sd.getTime() - MS_IN_24_HOURS)
+                break ;
+            case 1:
+                // WEEK
+                sd  = new Date(sd.getTime() - MS_IN_7_DAYS)
+                break ;
+            case 2:
+                // MONTH
+                sd  = new Date(sd.getTime() - MS_IN_31_DAYS)
+                break ;
+            case 3:
+                // YEAR: Not supported!
+                console.error ("YEAR value in periodSelector not supported!")
+                break ;
+            case 4:
+                // CALENDAR: not supported!
+                console.error ("CALENDAR value in periodSelector not supported!")
+                break ;
+            default:
+                // Invalid value!
+                console.error (`Unknown value in period selector: ${currValue}`)
+                break ;
+        }
+
+        console.log (`sd: ${sd}\ned: ${ed}`)
+        setDateRange ([sd, ed])
     }
 
 
@@ -308,17 +364,27 @@ export const MainApp = ({astarteClient}) => {
 
     // Handling statsSource, showUnit and showPeriod variables update
     React.useEffect(() => {
-        console.log (`Something changed: (entually) reloading displayed data!\n\
-\tstatsSource: ${statsSource}\n\tshowUnit: ${shownUnit}\n\tshowPeriod: ${shownPeriod}\n\tdateRange: [${startDate}, ${endDate}]`)
+        if (chartContainerRef) {
+            console.log (`Something changed: (entually) reloading displayed data!\n\
+\tstatsSource: ${statsSource}\n\tshowUnit: ${shownUnit}\n\tshowPeriod: ${shownPeriod}\n\tdateRange: [${dateRange[0]}, ${dateRange[1]}]`)
 
-        clearInterval (statisticsRetrieverTimer);
-        statisticsRetriver ();
-        statisticsRetrieverTimer    = setInterval (statisticsRetriver, STATISTICS_RETRIEVER_DELAY_MS);
-    }, [statsSource, shownUnit, shownPeriod, dateRange]);
+            statisticsRetriver();
+            
+            clearTimeout (statisticsRetrieverTimer)
+            statisticsRetrieverTimer    = setTimeout(() => {
+                console.log (`Called timeout!`)
+                let startTime   = dateRange[0].getTime()
+                let endTime     = dateRange[1].getTime()
+
+                setDateRange ([new Date(startTime+STATISTICS_RETRIEVER_DELAY_MS), new Date(endTime+STATISTICS_RETRIEVER_DELAY_MS)])
+            }, STATISTICS_RETRIEVER_DELAY_MS);
+        }
+    }, [statsSource, dateRange]);
 
 
     React.useEffect(() => {
-        if (chartContainerRef.current) {
+        
+        if (chartContainerRef.current) {    
             const resizeChart   = () => {
                 const domRect   = chartContainerRef.current.getBoundingClientRect()
                 let newWidth    = domRect.width
@@ -329,8 +395,11 @@ export const MainApp = ({astarteClient}) => {
                 })
             }
 
-            // Setting up
-            setupListeners();
+            // Setting up external sesnors retriever!
+            clearInterval (externalSensorsUpdaterTimer)
+            externalSensorsUpdater (true);
+            // Setting up interval to retrieve exteenal sensors values
+            externalSensorsUpdaterTimer = setInterval (externalSensorsUpdater, EXTERNAL_SENSORS_UPDATE_DELAY_MS, false);
 
             window.addEventListener("resize", resizeChart);
             resizeChart();
@@ -393,27 +462,28 @@ export const MainApp = ({astarteClient}) => {
                                     <div>
                                         {/*ELECTRICITY, VOLTAGE, ALL buttons*/}
                                         {createButtonGroup (controlButtonsDescriptors.unitSelectors,
-                                                                "us", shownUnit, setShownUnit)}
+                                                                "us", shownUnit, (currVal) => {setShownUnit(currVal)})}
                                     </div>
 
                                     <div className="d-flex justify-content-between">
                                         {/*DATE SELECTOR buttons*/}
                                         {createButtonGroup (controlButtonsDescriptors.periodSelectors,
-                                                                "ps", shownPeriod, setShownPeriod)}
+                                                                "ps", shownPeriod, (currVal) => {periodSelector(currVal)})}
 
                                         {/*DATE PICKER*/}
                                         <style>{DatePickerStyle.toString()}</style>
                                         <DatePicker
-                                            showMonthYearPicker={shownPeriod==2}
                                             selectsRange={true}
-                                            startDate={startDate}
-                                            endDate={endDate}
-                                            maxDate={endOfDay(new Date())}
+                                            startDate={dateRange[0]}
+                                            endDate={dateRange[1]}
+                                            //FIXME maxDate={endOfDay(new Date())}
+                                            maxDate={new Date()}
                                             onChange= {dateUpdater}
-                                            className="mb-3 ms-5"
+                                            className="ms-5"
                                             customInput={
-                                                <Button variant='light'>
-                                                    <FaRegCalendarAlt size={20}/>
+                                                <Button variant={`light ${shownPeriod==4 ? 'shadow text-primary' : 'text-dark'}`}
+                                                        className="d-flex align-items-center p-3">
+                                                    <FaRegCalendarAlt size={20} onClick={()=>{setShownPeriod(4)}}/>
                                                 </Button>
                                             }
                                         />
@@ -422,12 +492,12 @@ export const MainApp = ({astarteClient}) => {
                                 </ButtonToolbar>
 
                                 <div className="d-flex justify-content-end pe-3">
-                                    {rangeToString(dateRange)}
+                                    {rangeToString()}
                                 </div>
 
                                 <Container className="d-flex justify-content-center" ref={chartContainerRef}>
-                                    <DataChart data={chartDesc.rawData} width={chartDesc.width}
-                                                height={chartDesc.height}/>
+                                    <DataChart data={chartDesc.rawData} shownUnit={shownUnit}
+                                                width={chartDesc.width} height={chartDesc.height}/>
                                 </Container>
                             </Card.Body>
                         </Card>
@@ -457,23 +527,22 @@ export const MainApp = ({astarteClient}) => {
 
 
 
-/*  =====================================
-            ASTARTE DATA HANDLERS
-    ===================================== */
-
-// TODO
-
-
-
-
 /*  ===================================
             DATA CHART SETTINGS
     =================================== */
 
-// TODO Customize chart settings
+const months    = [`Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sept`, `Oct`, `Nov`, `Dec`]
+
+const yVoltageFormatter    = (val, opt) => {
+    return `${(val).toFixed(2)} V`
+}
+const yCurrentFormatter    = (val, opt) => {
+    return `${(val).toFixed(2)} A`
+}
+
 const chartOptions = {
     chart: {
-        id: 'people',
+        id: 'statistics',
         type: 'line',
         stacked: false,
         zoom: {
@@ -486,51 +555,94 @@ const chartOptions = {
         }
     },
     stroke: {
-        width: [2, 2],
+        width: [3, 3],
         curve: 'smooth'
     },
-    colors: ['#FF8300'],
-    dataLabels: {
-        enabled: false
-    },
+    colors: ['#2E93fA', '#66DA26'],
     markers: {
         size: 0,
     },
+    legend: {
+        position:'bottom',
+        horizontalAlign: 'left'
+    },
     tooltip: {
-        shared: false,
-        y: {
-            formatter: function (val) {
-                return (val).toFixed(0)
+        y: [
+            {
+                formatter: yCurrentFormatter
+            },
+            {
+                formatter: yVoltageFormatter
+            }
+        ],
+        x: {
+            formatter:(val) => {
+                let d       = new Date (val)
+                let addZero = (digit) => {
+                    return (digit<10 ? `0${digit}` : `${digit}`)
+                }
+                let time    = `${addZero(d.getHours())}:${addZero(d.getMinutes())}`
+
+                return `${d.getDate()} ${months[d.getMonth()]} @ ${time}`
             }
         }
     },
     xaxis: {
         type: 'datetime',
         labels : {
-            formatter : (time) => {
-                let d   = new Date(time)
-                return `${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
-            }
+            datetimeUTC: false
         }
     },
-    yaxis: {
-        labels: {
-            formatter: function (val) {
-                return (val).toFixed(0);
+    yaxis: [
+        {
+            seriesName: "Current",
+            title: {
+              text: "Current (A)",
+                style: {
+                    color: "#2E93fA"
+                }
+            },
+            axisBorder: {
+                show: true,
+                color: "#2E93fA"
+            },
+            labels: {
+                style: {
+                    colors: "#2E93fA"
+                }
             },
         },
-    }
+        
+        {
+            seriesName: "Voltage",
+            opposite: true,
+            title: {
+                text: "Voltage",
+                style: {
+                    color: "#66DA26"
+                }
+            },
+            axisBorder: {
+                show: true,
+                color: "#66DA26"
+            },
+            labels: {
+                style: {
+                    colors: "#66DA26"
+                }
+            },
+        }
+    ]
 };
 
 
-const DataChart = ({data, width, height}) => {
+const DataChart = ({data, shownUnit, width, height}) => {
 
-    // TODO Display data correctly
+    // Displaying the spinner if no data exists
     if (!data) {
         console.log (`No data exist`)
-
         return (
-            <Spinner className="m-5" animation="border" role="status">
+            <Spinner className="m-5" animation="border" role="status" variant="Info">
                 <span className="visually-hidden">Loading...</span>
             </Spinner>
         );
@@ -538,17 +650,38 @@ const DataChart = ({data, width, height}) => {
 
     const series = React.useMemo(
         () => {
-            console.log (`--> Displaying retrieved data`)
-            console.log (data)
+            console.log (`\t\t-->  Displaying retrieved data  <--`)
+            //console.log (data)
+
+            if (date.length>0) {
+                chartOptions.xaxis.min  = new Date (data[0].timestamp)
+                chartOptions.xaxis.max  = new Date (data[data.length-1].timestamp)
+            }
+
+            let dataFilter  = (displayCondition, valueKey) => {
+                if (displayCondition) {
+                    let filteredData    = _.map (data, (item, idx) => {return [new Date(item.timestamp), item[valueKey]]})
+                    /*console.log (`Filtered data`)
+                    console.log (filteredData)*/
+                    return filteredData
+                }
+                else {
+                    return []
+                }
+            }
             
             return [
                 {
-                    name: "People",
-                    data: data.map((d) => [new Date(d.timestamp), d.value]),
+                    name    : "Current",
+                    data    : dataFilter ((shownUnit == 0  ||  shownUnit == 2), 'current')
                 },
+                {
+                    name    : "Voltage",
+                    data    : dataFilter ((shownUnit == 1  ||  shownUnit == 2), 'voltage')
+                }
             ]
         },
-        [data]
+        [data, shownUnit]
     );
 
     return (
@@ -677,8 +810,6 @@ const stats_chart_options   = {
     xaxis: {
         labels: {
             formatter: (t) => {
-                // TODO CHeck 'date_range' value to return the correct value
-                //console.log (t)
                 return t.toFixed(0)
             }
         }
