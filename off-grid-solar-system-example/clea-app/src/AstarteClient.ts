@@ -1,10 +1,10 @@
 import axios, { AxiosInstance } from "axios";
 
 type AstarteClientProps = {
-    astarteURL: URL;
+    astarteUrl: URL;
     realm: string;
     token: string;
-    deviceID: string;
+    deviceId: string;
 };
 
 type Config = AstarteClientProps & {
@@ -26,13 +26,13 @@ class AstarteClient {
     PANEL_STATISTICS_INTERFACE:string   = `ai.clea.examples.offgrid.PanelStats`;
 
 
-    constructor({astarteURL, realm, token, deviceID}: AstarteClientProps) {
+    constructor({astarteUrl, realm, token, deviceId}: AstarteClientProps) {
         this.config = {
-            astarteURL,
+            astarteUrl,
             realm,
             token,
-            deviceID,
-            appeEngineURL: new URL("/", astarteURL),
+            deviceId,
+            appeEngineURL: new URL("/", astarteUrl),
         };
     }
 
@@ -41,8 +41,8 @@ class AstarteClient {
         const {appeEngineURL,
                 realm,
                 token,
-                deviceID}       = this.config;
-        const finalPath         = `appengine/v1/${realm}/devices/${deviceID}/interfaces` +
+                deviceId}       = this.config;
+        const finalPath         = `appengine/v1/${realm}/devices/${deviceId}/interfaces` +
                                     `/${inerfaceName}${path!==undefined ? "/"+path : ""}`;
         const requestURL        = new URL(finalPath, appeEngineURL);
         const query: Record<string, string> = {};
