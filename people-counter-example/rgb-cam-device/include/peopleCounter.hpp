@@ -31,6 +31,7 @@ public:
 
     void stop ();
     void wait_for_completion ();
+    void analyzeCurrentData (cv::Mat&, Scene&, TrackedObjects&, Detections&);
 
 private slots:
     void check_init_result(Hemera::Operation *op);

@@ -231,6 +231,7 @@ void PeopleCounter::send_values() {
             // Building "items" list with detected people
             for (auto &it : last_detection.detections) {
                 // item : {id, conf, pos_zone:{id, name}}
+                //qInfo() << "ID: " << it.person_id;
                 QJsonObject j_item;
                 QJsonObject j_zone;
                 j_zone.insert ("id", (int) it.zone_id);
@@ -262,6 +263,34 @@ void PeopleCounter::send_values() {
 
 void PeopleCounter::handleIncomingData(const QByteArray &interface, const QByteArray &path, const QVariant &value) {
     // No data is expected to be received from Astarte platform
+}
+
+
+
+
+void PeopleCounter::analyzeCurrentData (cv::Mat& frame, Scene &actual_scene,
+                                        TrackedObjects& detected_people, Detections& aggregated_detections) {
+    for (auto &detection : detected_people) {
+        // Finding out person center and the zone which belongs to
+        double x_center = ((double) detection.rect.x + ((double) detection.rect.width/2));
+        double y_center = ((double) detection.rect.y + ((double)detection.rect.height/2));
+        Point person_center = {x_center, y_center};
+        cv::Point cv_point_center (x_center, y_center);
+        cv::circle (frame, cv_point_center, 2, cv::Scalar(0, 0, 255));
+
+        for (auto &polygon: actual_scene) {
+            if (polygon.contains(person_center)) {
+                DetectedPerson detected_person;
+                detected_person.person_id   = detection.object_id;
+                detected_person.confidence  = detection.confidence;
+                detected_person.zone_id     = polygon.get_zone_id();
+                detected_person.zone_name   = polygon.get_zone_name();
+                // Adding detected person to "current_detections" object
+                aggregated_detections.detections.push_back (detected_person);
+                break;
+            }
+        }
+    }
 }
 
 
@@ -361,8 +390,20 @@ void PeopleCounter::people_counter_function () {
             frame   = m_tracker->DrawActiveTracks(frame);
 
             // Drawing all detected objects on a frame by BLUE COLOR
+            //qInfo() << "Detector results count: " << detector_results.size();
             for (const auto &detection : detector_results) {
                 cv::rectangle(frame, detection.rect, cv::Scalar(255, 0, 0), 3);
+            }
+            // Analyzing people positions in current frame
+            Detections current_detections;
+            analyzeCurrentData (std::ref(frame), std::ref(actual_scene),
+                                std::ref(detector_results), std::ref(current_detections));
+            //qInfo() << "detector length: " << detector_results.size() << "       current_detections length: " << current_detections.detections.size();
+            {
+                // Taking mutex for "detections_list" shared object
+                std::unique_lock<std::mutex> detections_lock (m_detections_mutex);
+                // Adding "current_detections" to "detections_list" object
+                m_detections_list.push_back (current_detections);
             }
 
             // Drawing on frame lines which indentify the zones
@@ -372,48 +413,21 @@ void PeopleCounter::people_counter_function () {
                 cv::line (frame, a, b, cv::Scalar(255, 0, 0), 2);
             }
 
+            // FIXME REMOVE ME!
             // Creating "current_detections" object which contains detected people in current frame
-            Detections current_detections;
+            /*Detections current_detections;
             current_detections.ms_timestamp = duration_cast<std::chrono::milliseconds>(system_clock::now()
-                                                .time_since_epoch()).count();
+                                                .time_since_epoch()).count();*/
 
-            {
-                // Taking mutex for "detections_list" shared object
-                std::unique_lock<std::mutex> detections_lock (m_detections_mutex);
-
-                // Drawing tracked detections only by RED color and print ID and detection confidence level.
-                auto detected_objects   = m_tracker->TrackedDetections();
-                for (const auto &detection : detected_objects) {
-                    // Drawing person bounding box, id and confidence on frame
-                    cv::rectangle(frame, detection.rect, cv::Scalar(0, 0, 255), 3);
-                    std::string text = std::to_string(detection.object_id) +
-                        " conf: " + std::to_string(detection.confidence);
-                    cv::putText(frame, text, detection.rect.tl(), cv::FONT_HERSHEY_COMPLEX,
-                                1.0, cv::Scalar(0, 0, 255), 3);
-                    
-                    // Finding out person center and the zone which belongs to
-                    double x_center = ((double) detection.rect.x + ((double) detection.rect.width/2));
-                    double y_center = ((double) detection.rect.y + ((double)detection.rect.height/2));
-                    Point person_center = {x_center, y_center};
-                    cv::Point cv_point_center (x_center, y_center);
-                    cv::circle (frame, cv_point_center, 2, cv::Scalar(0, 0, 255));
-
-                    for (auto &polygon: actual_scene) {
-                        if (polygon.contains(person_center)) {
-                            DetectedPerson detected_person;
-                            detected_person.person_id   = detection.object_id;
-                            detected_person.confidence  = detection.confidence;
-                            detected_person.zone_id     = polygon.get_zone_id();
-                            detected_person.zone_name   = polygon.get_zone_name();
-                            // Adding detected person to "current_detections" object
-                            current_detections.detections.push_back (detected_person);
-                            break;
-                        }
-                    }
-                }
-
-                // Adding "current_detections" to "detections_list" object
-                m_detections_list.push_back (current_detections);
+            // Drawing tracked detections only by RED color and print ID and detection confidence level.
+            auto detected_objects   = m_tracker->TrackedDetections();
+            for (const auto &detection : detected_objects) {
+                // Drawing person bounding box, id and confidence on frame
+                cv::rectangle(frame, detection.rect, cv::Scalar(0, 0, 255), 3);
+                std::string text = std::to_string(detection.object_id) +
+                    " conf: " + std::to_string(detection.confidence);
+                cv::putText(frame, text, detection.rect.tl(), cv::FONT_HERSHEY_COMPLEX,
+                            1.0, cv::Scalar(0, 0, 255), 3);
             }
 
             frames_processed++;
