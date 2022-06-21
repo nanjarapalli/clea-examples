@@ -15,7 +15,6 @@ import { date } from "yup";
 
 // Global variables
 const EXTERNAL_SENSORS_UPDATE_DELAY_MS  = 4000;
-//FIXME const STATISTICS_RETRIEVER_DELAY_MS     = 20000;
 const STATISTICS_RETRIEVER_DELAY_MS     = 10000;
 const MS_IN_A_MINUTE                    = 60*1000
 const MS_IN_10_MINUTES                  = 10*MS_IN_A_MINUTE
@@ -58,10 +57,10 @@ export const MainApp = ({astarteClient}) => {
         refSolarCell    : {
                             value           : React.useState(null),
                             valueTimestamp  : React.useState(null),
-                            text            : "Reference Electrical Current",
+                            text            : "Reference Solar Power",
                             lastUpdate      : new Date(),
                             query           : (date) => {return astarteClient.getReferenceCellCurrent(date)},
-                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue+" A"},
+                            displayValue    : (currValue) => {return currValue==null ? "Unknown" : currValue+" W"},
                             className       : (currValue) => {return "card-info rounded shadow"}
                         },
         dayPeriod       : {
