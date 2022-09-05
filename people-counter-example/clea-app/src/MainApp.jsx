@@ -8,12 +8,22 @@ import { FormattedMessage } from "react-intl";
 import Chart from "react-apexcharts";
 import DatePicker from "react-datepicker";
 import DatePickerStyle from "react-datepicker/dist/react-datepicker.css";
-import _ from 'lodash';
+import _, { result } from 'lodash';
 
 let historical_data_size        = 5;            // minutes
 const default_areas             = [];           // item : {zone_count, zone_name, zone_id}
 let historical_data_cache       = [];           // item : {timestamp, value}
 let last_query_date             = undefined;
+let zones_colors                = [
+    {class:'text-primary', color:'#007bff'},
+    {class:'text-secondary', color:'#6c757d'},
+    {class: 'text-success', color:'#28a745'}, 
+    {class: 'text-danger', color:'#dc3545'},
+    {class: 'text-warning', color:'#ffc107'}, 
+    {class:'text-info', color:'#17a2b8'},
+    {class:'text-dark', color:'#343a40'}
+]
+let zcolors = ['#007bff', '#6c757d', `#28a745`, `#dc3545`, `#ffc107`, `#17a2b8`, `#343a40`]
 
 
 
@@ -203,13 +213,14 @@ export const MainApp = ({ sceneSettings, updateInterval, astarteClient, deviceId
                         </Card>
                         <Row>
                             {counter.areas.map((area, index) => {
+                                console.log (`index: ${index}`)
                                 return (
                                     <Col sm={12} md={6} key={index}>
-                                        <Card className="area-section rounded">
+                                        <Card className="area-section rounded text-center">
                                             <Card.Body>
                                                 <div className="area-container">
-                                                    <div className="area-title text-secondary">
-                                                        <h4>{area.zone_name}</h4>
+                                                    <div className="area-title text-secondary p-3 d-flex">
+                                                        <h4 className={zones_colors[index].class}>{area.zone_name}</h4>
                                                         <small>People Counter</small>
                                                     </div>
                                                     <div className="area-number text-primary">
@@ -254,7 +265,7 @@ export const MainApp = ({ sceneSettings, updateInterval, astarteClient, deviceId
                         <Card.Body>
                             <div className="chart-container" ref={stats_chart_ref}>
                                 <Fragment>
-                                    <StatsChart astarte_client={astarteClient} device_id={deviceId} stats_chart_ref={stats_chart_ref} />
+                                    <StatsChart astarte_client={astarteClient} device_id={deviceId} stats_chart_ref={stats_chart_ref} areas={counter.areas}/>
                                 </Fragment>
                             </div>
                         </Card.Body>
@@ -415,19 +426,98 @@ const DataChart = ({ data, width, height, isMount = false }) => {
     ==================================== */
 
 const stats_chart_options   = {
+        chart: {
+        type: 'bar',
+        height: 350,
+        stacked: true,
+        toolbar: {
+          show: false
+        },
+        zoom: {
+          enabled: true
+        }
+      },
+      responsive: [{
+        breakpoint: 480,
+        options: {
+          legend: {
+            position: 'bottom',
+            offsetX: -10,
+            offsetY: 0
+          }
+        }
+      }],
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          borderRadius: 10
+        },
+      },
+      tooltip : {
+        enabled : false
+      },
+      xaxis: {
+        labels: {
+            formatter: (t) => {
+                return t
+            }
+        }
+      },
+      colors: zcolors,
+      legend: {
+        position: 'bottom'
+      },
+      fill: {
+        opacity: 1
+      }
+};
+/*const stats_chart_options   = {
+    series  : [
+        {
+            name: 'PRODUCT A',
+            data: [44, 55, 41, 67, 22, 43]
+        },{
+            name: 'PRODUCT B',
+            data: [13, 23, 20, 8, 13, 27]
+        },{
+            name: 'PRODUCT C',
+            data: [11, 17, 15, 15, 21, 14]
+        },{
+            name: 'PRODUCT D',
+            data: [21, 7, 25, 13, 22, 8]
+        }
+    ],
+
     chart   : {
         id      : 'stats-chart',
         type    : 'bar',
+        stacked : true,
         toolbar: {
             show : false,
             autoSelected: 'pan'
         }
     },
+    responsive: [{
+        breakpoint: 480,
+        options: {
+          legend: {
+            position: 'bottom',
+            offsetX: -10,
+            offsetY: 0
+          }
+        }
+      }],
+    plotOptions : {
+        bar: {
+            horizontal: false,
+            borderRadius: 10
+          }
+    },
     stroke: {
         width: [2, 2],
         curve: 'smooth'
     },
-    colors: ['#FF8300'],
+    colors: ['#FF8300', '#AA8300'],
     title: {
         show    : false
     },
@@ -447,10 +537,10 @@ const stats_chart_options   = {
             }
         }
     }
-}
+}*/
 
 
-const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
+const StatsChart    = ({astarte_client, device_id, stats_chart_ref, areas}) => {
     const [stats_chart_desc, set_stats_desc]    = React.useState ({data:undefined, width:0, height:0})
     const [filter_grain, set_filter_grain]      = React.useState (0)                        // 0:hours, 1:weekdays, 2:moth days
     const [date_range, set_date_range]          = React.useState ([new Date(), new Date()]) // DatePicker result
@@ -533,6 +623,13 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
 
 
     const data_analyzer     = (data) => {
+        console.log (`Analyzing data...\nfilter_grain:${filter_grain}`)
+        /*let people  = []
+        for (let i in data[0].people)
+            people.push (JSON.parse (data[0].people[i]))
+        console.log (data)
+        console.log (people)*/
+
         /* data item:
             {
                 "people": [
@@ -543,22 +640,55 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                     "timestamp": "2022-03-03T13:01:53.722Z"
             }
          */
+        /* OUTPUT:[
+            ...
+            {name:'area_name', data:[]}
+            ...
+        ]
+        */
+
+
         let item_per_unit   = []
         let results         = []
+
         
         
         if (filter_grain == 0) {
             // Analyzing data basing on hours
-            for (let i=0; i<24; i++) {
+            /*for (let i=0; i<24; i++) {
                 results[i]          = 0
                 item_per_unit[i]    = 0
+            }*/
+            for (let i=0; i<areas.length; i++) {
+                let zone_name               = areas[i].zone_name
+                results[i]                  = {name:zone_name, data:[]}
+                item_per_unit[zone_name]    = []
+                for (let j=0;j<24;j++) {
+                    results[i].data[j]          = 0
+                    item_per_unit[zone_name][j] = 0
+                }
             }
 
-            _.map (data, (item, idx) => {
+            /*_.map (data, (item, idx) => {
                 let item_hour   = Number (new Date (item["timestamp"]).getHours())
                 results[item_hour] += item['people_count']
                 item_per_unit[item_hour] += 1
+            })*/
+            _.map (data, (item, idx) => {
+                let item_hour   = Number (new Date (item["timestamp"]).getHours())
+                let jpeople     = JSON.parse(`[${item.people}]`)
+                for (let i in jpeople) {
+                    let person  = jpeople[i]
+                    results[person.pos_zone.id].data[item_hour] += 1
+                }
+                item_per_unit[person.pos_zone.name][item_hour] += 1
+                /*let item_hour   = Number (new Date (item["timestamp"]).getHours())
+                results[item_hour] += item['people_count']
+                item_per_unit[item_hour] += 1*/
             })
+
+            console.log (results)
+            console.log (item_per_unit)
         }
         else if (filter_grain == 1) {
             // Analyzing data basing on weekdays
@@ -595,6 +725,7 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
 
         //console.log (`Building results\n\tfg: ${filter_grain}\n\tlen: ${item_per_unit.length}`)
         results = _.map (item_per_unit, (item, idx) => {
+            console.log (item)
             return {
                 // Considering 'filter_grain' value to specify the 'x' value
                 x:value_to_axis_text(idx),
@@ -602,8 +733,8 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                 y:item==0 ? 0 : Number((results[idx]/item).toFixed(2))}
         })
 
-        /*console.log ('data_analyzer results:')
-        console.log (results)*/
+        console.log ('data_analyzer results:')
+        console.log (results)
 
         return results
     }
@@ -672,6 +803,19 @@ const StatsChart    = ({astarte_client, device_id, stats_chart_ref}) => {
                     data    : _.map (stats_chart_desc.data, (item) => item)
                 }
             ]
+            /*return [{
+                name: 'PRODUCT A',
+                data: [44, 55, 41, 67, 22, 43]
+              }, {
+                name: 'PRODUCT B',
+                data: [13, 23, 20, 8, 13, 27]
+              }, {
+                name: 'PRODUCT C',
+                data: [11, 17, 15, 15, 21, 14]
+              }, {
+                name: 'PRODUCT D',
+                data: [21, 7, 25, 13, 22, 8]
+              }]*/
         }
     )
 
