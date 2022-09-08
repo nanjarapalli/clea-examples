@@ -2,6 +2,7 @@ build
 .vscode
 Makefile
 astarte_persistency.d
+persistency*
 astarte-device-sdk-qt5
 dist
 node_modules
