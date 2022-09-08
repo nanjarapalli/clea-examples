@@ -50,27 +50,36 @@ class VideoThread(QThread):
         tic = time.time()
         ie = IECore()
 
+        model_path='./model'
+        face_det_model='face-detection-retail-0004'
+        age_gen_model='age-gender-recognition-retail-0013'
+        emotions_model='emotions-recognition-retail-0003'
+        net_face_det_path='{}/{}/FP32'.format(model_path, face_det_model)
+        net_age_gen_path='{}/{}/FP32'.format(model_path, age_gen_model)
+        net_emotions_path='{}/{}/FP32'.format(model_path, emotions_model)
+        
         self.net_face_det = ie.read_network(
-            # model=".\\model\\face-detection-retail-0004\\FP16\\face-detection-retail-0004.xml",
-            # weights=".\\model\\face-detection-retail-0004\\FP16\\face-detection-retail-0004.bin",
-            model="./model/face-detection-retail-0004/FP16/face-detection-retail-0004.xml",
-            weights="./model/face-detection-retail-0004/FP16/face-detection-retail-0004.bin",
+            model="{}/{}.xml".format(net_face_det_path, face_det_model),
+            weights="{}/{}.bin".format(net_face_det_path, face_det_model)
         )
         self.net_age_gen = ie.read_network(
-            # model=".\\model\\age-gender-recognition-retail-0013\\FP16\\age-gender-recognition-retail-0013.xml",
-            # weights=".\\model\\age-gender-recognition-retail-0013\\FP16\\age-gender-recognition-retail-0013.bin",
-            model="./model/age-gender-recognition-retail-0013/FP16/age-gender-recognition-retail-0013.xml",
-            weights="./model/age-gender-recognition-retail-0013/FP16/age-gender-recognition-retail-0013.bin",
+            model="{}/{}.xml".format(net_age_gen_path, age_gen_model),
+            weights="{}/{}.bin".format(net_age_gen_path, age_gen_model)
         )
         self.net_emotions = ie.read_network(
-            # model=".\\model\\emotions-recognition-retail-0003\\FP16\\emotions-recognition-retail-0003.xml",
-            # weights=".\\model\\emotions-recognition-retail-0003\\FP16\\emotions-recognition-retail-0003.bin",
-            model="./model/emotions-recognition-retail-0003/FP16/emotions-recognition-retail-0003.xml",
-            weights="./model/emotions-recognition-retail-0003/FP16/emotions-recognition-retail-0003.bin",
+            model="{}/{}.xml".format(net_emotions_path, emotions_model),
+            weights="{}/{}.bin".format(net_emotions_path, emotions_model)
         )
+
+
+        print ("Loading face detection network..")
         self.exec_net_face_det = ie.load_network(self.net_face_det, "CPU")
+        print ("Loading age and gender network..")
         self.exec_net_age_gen = ie.load_network(self.net_age_gen, "CPU")
+        print ("Loading emotions network..")
         self.exec_net_emotions = ie.load_network(self.net_emotions, "CPU")
+
+        print ("\n====================\nAll networks loaded!\n====================\n")
 
         toc = time.time()
         print("Facial attibute analysis models loaded in ", toc - tic, " seconds")
@@ -99,6 +108,8 @@ class VideoThread(QThread):
 
     def unpause(self):
         self.pause = False
+        
+
 
     def run(self):
         """Main loop of this Thread"""
@@ -114,6 +125,7 @@ class VideoThread(QThread):
         _, _, H, W = self.net_face_det.input_info[input_layer_ir_face_det].tensor_desc.dims
         _, _, H_ag, W_ag = self.net_age_gen.input_info[input_layer_ir_age_gen].tensor_desc.dims
         _, _, H_em, W_em = self.net_emotions.input_info[input_layer_ir_emotions].tensor_desc.dims
+
 
         camera = cv2.VideoCapture(self.source)
 
@@ -137,6 +149,7 @@ class VideoThread(QThread):
 
                 frame = cv2.flip(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), 1)
 
+                
                 raw_img = frame.copy()
                 if freeze == False:
                     try:
@@ -284,8 +297,6 @@ class VideoThread(QThread):
                 else:
                     # Store the current image
                     self.currentFrame = frame
-                    # toc = time.time()
-                    # if (toc - tic) < self.time_threshold:
                     self.current_user = {}
                     pass
 
