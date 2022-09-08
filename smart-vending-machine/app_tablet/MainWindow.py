@@ -51,6 +51,7 @@ class MainWindow(QWidget):
         self.size_icon = QSize(170, 170)
         self.font_size = int(0.016*self.width)
         self.imgs_width = int(0.15*self.width)
+        self.last_mat   = None
 
         self.video_thread = VideoThread()
         self.video_thread.updated.connect(self.new_image_slot, type=Qt.QueuedConnection)
