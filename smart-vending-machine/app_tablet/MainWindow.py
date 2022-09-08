@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QWidget, QInputDia
 from PyQt5.QtGui import QImage, qRgb, QPixmap, QMouseEvent
 
 from VideoThread import VideoThread
-#from VideoThread_openVino import VideoThread
+from BLEThread import BLEThread
 from ProductBox import ProductBox
 
 
@@ -41,7 +41,7 @@ class QLabel_clickable(QLabel):
 
 class MainWindow(QWidget):
 
-    def __init__(self, width, height, stacked_window=None):
+    def __init__(self, config, width, height, stacked_window=None):
         super().__init__()
 
         self.width = width
@@ -53,13 +53,18 @@ class MainWindow(QWidget):
         self.imgs_width = int(0.15*self.width)
         self.last_mat   = None
 
-        self.video_thread = VideoThread()
+        self.video_thread = VideoThread(config=config)
         self.video_thread.updated.connect(self.new_image_slot, type=Qt.QueuedConnection)
         self.current_user = {}
 
         self.init_ui()
         self.video_thread.start()
         self.pause = False
+
+        # Setting up BLE thread
+        self.ble_thread = BLEThread (config=config)
+        self.ble_thread.start()
+
 
     def init_ui(self):
         """Method to initialize the UI: layouts and components"""
@@ -155,5 +160,6 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         print("CLOSED")
+        self.ble_thread.dectivate()
         self.video_thread.deactivate()
         event.accept()

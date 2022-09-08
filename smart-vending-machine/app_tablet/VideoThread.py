@@ -32,52 +32,46 @@ def get_bigger_face(locs):
 class VideoThread(QThread):
     updated = pyqtSignal()  # in order to work it has to be defined out of the contructor
 
-    def __init__(self, frame_threshold=50, time_threshold=10, source=0):
+    def __init__(self, config):
         super().__init__()
 
         self.currentFrame = None
         self.active = False
         self.pause = False
-        self.source = source
+        self.source = config["VIDEO"]["source"]
         self.current_user = {}
         self.detector_backend = 'opencv'
         self.enable_face_analysis = True
-        self.frame_threshold = frame_threshold
-        self.time_threshold = time_threshold
-        self.init_models()
+        self.frame_threshold = int(config["VIDEO"]["frame_threshold"])
+        self.time_threshold = int(config["VIDEO"]["time_threshold"])
+        self.init_models(config=config)
 
-    def init_models(self):
+
+    def init_models(self, config):
         tic = time.time()
         ie = IECore()
-
-        model_path='./model'
-        face_det_model='face-detection-retail-0004'
-        age_gen_model='age-gender-recognition-retail-0013'
-        emotions_model='emotions-recognition-retail-0003'
-        net_face_det_path='{}/{}/FP32'.format(model_path, face_det_model)
-        net_age_gen_path='{}/{}/FP32'.format(model_path, age_gen_model)
-        net_emotions_path='{}/{}/FP32'.format(model_path, emotions_model)
+        video_config = config["VIDEO"]
         
         self.net_face_det = ie.read_network(
-            model="{}/{}.xml".format(net_face_det_path, face_det_model),
-            weights="{}/{}.bin".format(net_face_det_path, face_det_model)
+            model="{}.xml".format(video_config["face_detection_model_prefix"]),
+            weights="{}.bin".format(video_config["face_detection_model_prefix"])
         )
         self.net_age_gen = ie.read_network(
-            model="{}/{}.xml".format(net_age_gen_path, age_gen_model),
-            weights="{}/{}.bin".format(net_age_gen_path, age_gen_model)
+            model="{}.xml".format(video_config["age_gender_model_prefix"]),
+            weights="{}.bin".format(video_config["age_gender_model_prefix"])
         )
         self.net_emotions = ie.read_network(
-            model="{}/{}.xml".format(net_emotions_path, emotions_model),
-            weights="{}/{}.bin".format(net_emotions_path, emotions_model)
+            model="{}.xml".format(video_config["emotions_model_prefix"]),
+            weights="{}.bin".format(video_config["emotions_model_prefix"])
         )
 
 
         print ("Loading face detection network..")
-        self.exec_net_face_det = ie.load_network(self.net_face_det, "CPU")
+        self.exec_net_face_det = ie.load_network(self.net_face_det, video_config["face_detection_net_executor"])
         print ("Loading age and gender network..")
-        self.exec_net_age_gen = ie.load_network(self.net_age_gen, "CPU")
+        self.exec_net_age_gen = ie.load_network(self.net_age_gen, video_config["age_gender_net_executor"])
         print ("Loading emotions network..")
-        self.exec_net_emotions = ie.load_network(self.net_emotions, "CPU")
+        self.exec_net_emotions = ie.load_network(self.net_emotions, video_config["emotions_net_executor"])
 
         print ("\n====================\nAll networks loaded!\n====================\n")
 
