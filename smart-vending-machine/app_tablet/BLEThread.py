@@ -2,11 +2,18 @@
 from ast import Pass
 import asyncio
 from distutils.command.config import config
+from select import select
 from time import time
 from bleak import BleakScanner
 import asyncio
-from PyQt5.QtCore import (QThread)
+from PyQt5.QtCore import (QThread, QObject, pyqtSignal)
 #from PyQt5.QtCore import (Qt, QObject, pyqtSignal, QThread, QTimer)
+
+
+
+
+class NewDataSignal (QObject) :
+    signal = pyqtSignal(object)
 
 
 
@@ -24,9 +31,9 @@ class BLECache () :
         # Retrieving the device
         try :
             item = self.cache[device_address]
-            print ("Existing device {} updated".format(device_address))
+            #print ("Existing device {} updated".format(device_address))
         except KeyError :
-            print ("Adding device {} at {}".format(device_address, now))
+            #print ("Adding device {} at {}".format(device_address, now))
             self.cache[device_address] = {'address':device_address, 'in_at':now, 'out_at':None}
             item = self.cache[device_address]
         
@@ -57,6 +64,7 @@ class BLEThread (QThread) :
         super().__init__(parent)
         self.config = config
         self.cache = BLECache()
+        self.new_data_signal = NewDataSignal ()
 
 
     async def async_runner (self) :
@@ -74,18 +82,24 @@ class BLEThread (QThread) :
             if time_diff > send_delay :
                 # TODO Consuming data cache and sending those values to Astarte
                 print ("\n===============================\n=====  Consuming beacons  =====\n===============================")
-                devices = self.cache.consume_devices()
+                consumed_devices = self.cache.consume_devices()
+                self.new_data_signal.signal.emit(consumed_devices)
                 previous_send = now
 
 
             for d in devices:
-                if (d.rssi > min_rssi):
-                    self.cache.add_device(d, discovery_time)
-                    # print ("{} ->\n\tname:     {}\n\tdetails:  {}\n\trssi:      {}\n\tmetadata: {}\n--------\n".format(\
-                    #         d.address, d.name, d.details, d.rssi, d.metadata))
-                else :
-                    #print ("Rejecting device {} with rssi={}".format(d.address, d.rssi))
-                    pass
+                try :
+                    d_rssi = d.rssi
+                    if (d.rssi > min_rssi):
+                        self.cache.add_device(d, discovery_time)
+                        # print ("{} ->\n\tname:     {}\n\tdetails:  {}\n\trssi:      {}\n\tmetadata: {}\n--------\n".format(\
+                        #         d.address, d.name, d.details, d.rssi, d.metadata))
+                    else :
+                        #print ("Rejecting device {} with rssi={}".format(d.address, d.rssi))
+                        pass
+                except Exception as e:
+                    print ("Catched this exception {}\nfor this device".format(e))
+                    print (d)
 
 
     def run(self) -> None:

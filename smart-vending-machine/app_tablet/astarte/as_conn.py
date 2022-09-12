@@ -50,6 +50,7 @@ def set_device(config):
 
     interfaces = load_interfaces(astarte_config["interfaces_dir_path"])
     for interface in interfaces:
+        #print ("Adding interface {}".format(interface))
         device.add_interface(interface)
 
     # device.on_connected = connect_callback
@@ -69,3 +70,8 @@ def set_device(config):
 
 def send_data(device, data):
     device.send_aggregate("ai.clea.examples.face.emotion.detection.Transaction", "/transaction", payload=data, timestamp=time.time())
+
+
+def send_ble_data (device, data) :
+    print ("Sending those data with {}: {}\n\n\n".format(device, data))
+    device.send_aggregate ('ai.clea.examples.BLEDevices', '/', payload=data)

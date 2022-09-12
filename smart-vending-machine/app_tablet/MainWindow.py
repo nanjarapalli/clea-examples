@@ -7,6 +7,8 @@ from VideoThread import VideoThread
 from BLEThread import BLEThread
 from ProductBox import ProductBox
 
+from astarte.as_conn import Astarte, send_ble_data
+
 
 def toQImage(im):
     """
@@ -64,6 +66,17 @@ class MainWindow(QWidget):
         # Setting up BLE thread
         self.ble_thread = BLEThread (config=config)
         self.ble_thread.start()
+        self.ble_thread.new_data_signal.signal.connect (lambda d : self.ble_sender(d))
+
+
+    def ble_sender (self, devices) :
+        payload = {'devices': [], 'presence_time':[]}
+        for d in devices :
+            payload['devices'].append (d['address'])
+            payload['presence_time'].append (d['presence_time'])
+
+        astarte = Astarte()
+        send_ble_data (device=astarte.device, data=payload)
 
 
     def init_ui(self):
