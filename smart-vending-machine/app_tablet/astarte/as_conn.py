@@ -73,5 +73,5 @@ def send_data(device, data):
 
 
 def send_ble_data (device, data) :
-    print ("Sending those data with {}: {}\n\n\n".format(device, data))
+    #print ("Sending those data with {}: {}\n\n\n".format(device, data))
     device.send_aggregate ('ai.clea.examples.BLEDevices', '/', payload=data)
