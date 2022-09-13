@@ -1,7 +1,7 @@
 import axios from "axios";
 import moment from "moment"
 
-import { TransactionData } from "./types/index"
+import { TransactionData, BleData, DeviceEntry } from "./types/index"
 
 type AstarteClientProps = {
   astarteUrl: URL;
@@ -21,6 +21,16 @@ type GetTransactionValuesParams = {
   to?: Date;
   limit?: number;
   downsamplingTo?: number;
+};
+
+
+type GetBleDataValuesParams = {
+    deviceId: string;
+    sinceAfter?: Date;
+    since?: Date;
+    to?: Date;
+    limit?: number;
+    downsamplingTo?: number;
 };
 
 class AstarteClient {
@@ -77,6 +87,64 @@ class AstarteClient {
         return response.data.data
       }
       return [];
+    });
+  }
+
+
+  async getBleData ({deviceId, sinceAfter, since, to, limit, downsamplingTo} : GetBleDataValuesParams) : Promise<DeviceEntry[]> {
+    const { appEngineUrl, realm, token } = this.config;
+    const interfaceName = "ai.clea.examples.BLEDevices";
+    const path = `v1/${realm}/devices/${deviceId}/interfaces/${interfaceName}/`;
+    const requestUrl = new URL(path, appEngineUrl);
+    const query: Record<string, string> = {};
+    if (sinceAfter) {
+      query.sinceAfter = sinceAfter.toISOString();
+    }
+    if (since) {
+      query.since = since.toISOString();
+    }
+    if (to) {
+      query.to = to.toISOString();
+    }
+    if (limit) {
+      query.limit = limit.toString();
+    }
+    if (downsamplingTo) {
+      if (downsamplingTo > 2) {
+        query.downsample_to = downsamplingTo.toString();
+      } else {
+        console.warn("[AstarteClient] downsamplingTo must be > 2");
+      }
+    }
+    requestUrl.search = new URLSearchParams(query).toString();
+
+    return axios({
+      method: "get",
+      url: requestUrl.toString(),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json;charset=UTF-8",
+      },
+    }).then((response) => {
+      console.log("Got BLE response from Astarte:", response);
+      let result : any[] = [];
+
+      if (response.data.data) {
+        response.data.data.forEach ((item:any) => {
+            if (Array.isArray(item.devices) && Array.isArray(item.presence_time)) {
+                if (item.devices.length != item.presence_time.length) {
+                    console.error ("Lengths differs!")
+                    return
+                }
+                let timestamp   = new Date(item.timestamp)
+                for (let i=0; i<item.devices.length; i++) {
+                    result.push({mac:item.devices[i], presence_time:item.presence_time[i], timestamp:Number(timestamp)})
+                }
+                result.sort ((a:DeviceEntry, b:DeviceEntry) => a.timestamp-b.timestamp)
+            }
+        })
+      }
+      return result;
     });
   }
 }

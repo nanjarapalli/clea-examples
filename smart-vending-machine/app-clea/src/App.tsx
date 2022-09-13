@@ -5,10 +5,11 @@ import Overview from "./pages/Overview";
 import Revenues from "./pages/Revenues";
 import Gender from "./pages/Gender";
 import Emotions from "./pages/Emotions";
+import Audience from "./pages/Audience";
 import SideMenu from "./components/SideMenu";
 
 import AstarteClient from "./AstarteClient";
-import { TransactionData } from "./types";
+import { BleData, TransactionData } from "./types";
 import Age from "./pages/Age";
 
 export type AppProps = {
@@ -52,6 +53,11 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
       path: "/emotions",
       sidebar: "Emotions",
       main: <Emotions transactions={transactions} />
+    },
+    {
+      path: "/audience",
+      sidebar: "Audience",
+      main: <Audience transactions={transactions} />
     },
   ];
   const titlesSideBar: Array<string> = []

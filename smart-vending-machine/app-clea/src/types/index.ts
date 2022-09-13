@@ -20,6 +20,15 @@ export type TransactionData = {
   timestamp: number
 }
 
+export type DeviceEntry = {
+    mac: string
+    presence_time: string
+    timestamp: number
+}
+export type BleData = {
+    devices: DeviceEntry[]
+}
+
 export enum BeverageShort {
   ALL = "All",
   ESP = "Esp",
