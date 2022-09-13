@@ -42,7 +42,7 @@ class BLECache () :
 
 
     def consume_devices (self) :
-        print ("#keys is {}".format(len(self.cache)))
+        #print ("#keys is {}".format(len(self.cache)))
         output = []
         for key in self.cache :
             item = self.cache[key]
@@ -80,8 +80,7 @@ class BLEThread (QThread) :
             time_diff = now - previous_send
 
             if time_diff > send_delay :
-                # TODO Consuming data cache and sending those values to Astarte
-                print ("\n===============================\n=====  Consuming beacons  =====\n===============================")
+                #print ("\n===============================\n=====  Consuming beacons  =====\n===============================")
                 consumed_devices = self.cache.consume_devices()
                 self.new_data_signal.signal.emit(consumed_devices)
                 previous_send = now
