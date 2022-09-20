@@ -240,6 +240,46 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
     const astarte = params.astarte
     const deviceId = params.deviceId
 
+    
+    // --------- DatePicker ----------
+    const [dateGranularity, setDateGranularity] = useState<DateGranularity>(DateGranularity.DAY);
+    const customDateRange = useRef<boolean>(false);
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRange(DateGranularity.DAY));
+
+    useEffect(() => {
+        data_retriever ()
+
+        const t = setInterval(() => {
+            dispatch ({type:'update'})
+        }, 40000);
+
+        return () => {
+            console.log ("-->  Clearing allocated resources  <--")
+            clearInterval(t)
+        }; // clear
+      }, [] );
+
+
+    // --------- Dataset -------------
+    const [dataset, setDataset] = useState<Dataset[]>([]);
+    
+    // Trigger filtering on new Beverage or DateRange change
+    useEffect(() => {
+        data_retriever ()
+    }, [dateRange, dateGranularity]);
+    
+    
+    const units: { [key: string]: number } = {}
+    const revenenues: { [key: string]: number } = {}
+    const choicesPoints: DataPoint[] = []
+    
+    
+    labels.forEach((label) => {
+        units[label]=0
+        revenenues[label]=0
+    })
+    
+    // ----------------------
     const data_retriever    = async () => {
         console.log (`=====  Reloading data!  =====\n`)
         
@@ -264,45 +304,7 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
             }
         return state;
     }
-
-    // --------- DatePicker ----------
-    const [dateGranularity, setDateGranularity] = useState<DateGranularity>(DateGranularity.DAY);
-    const customDateRange = useRef<boolean>(false);
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRange(DateGranularity.DAY));
     const [reducer, dispatch] = useReducer (data_updater, 0);
-
-    useEffect(() => {
-        data_retriever ()
-
-        const t = setInterval(() => {
-            dispatch ({type:'update'})
-        }, 40000);
-
-        return () => {
-            console.log ("-->  Clearing allocated resources  <--")
-            clearInterval(t)
-        }; // clear
-      }, [] );
-
-
-    // --------- Dataset -------------
-    const [dataset, setDataset] = useState<Dataset[]>([]);
-
-    // Trigger filtering on new Beverage or DateRange change
-    useEffect(() => {
-        data_retriever ()
-    }, [dateRange, dateGranularity]);
-
-
-    const units: { [key: string]: number } = {}
-    const revenenues: { [key: string]: number } = {}
-    const choicesPoints: DataPoint[] = []
-
-
-    labels.forEach((label) => {
-        units[label]=0
-        revenenues[label]=0
-    })
 
 
     return (
