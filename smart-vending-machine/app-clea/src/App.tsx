@@ -70,7 +70,7 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
   useEffect(() => {
     getTransactions();
 
-    const t = setInterval(getTransactions, 40000);  // FIXME
+    const t = setInterval(getTransactions, 40000);
     return () => clearInterval(t); // clear
   }, [] );
 

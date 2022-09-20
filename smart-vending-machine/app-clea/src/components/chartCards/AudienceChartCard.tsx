@@ -273,7 +273,7 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
 
         const t = setInterval(() => {
             dispatch ({type:'update'})
-        }, 20000);
+        }, 40000);
 
         return () => {
             console.log ("-->  Clearing allocated resources  <--")
