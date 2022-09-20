@@ -126,7 +126,7 @@ const LineChart = ( { datasets, measure="", legend=true } : ChartProps) : JSX.El
                 tooltip : {
                     callbacks : {
                         label : (it : any) => {
-                            console.log (it)
+                            //console.log (it)
                             return get_tooltip_content (it.dataset.label, it.raw.x*1000, it.raw.y, datasets[0].granularity)
                         }
                     }
