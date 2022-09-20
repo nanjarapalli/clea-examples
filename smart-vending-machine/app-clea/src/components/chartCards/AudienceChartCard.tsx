@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import CSS from 'csstype';
 
 import moment from "moment"
-import { TransactionData, DeviceEntry, BeverageFromLongToShort } from "../../types";
+import { TransactionData, DeviceEntry, BeverageFromLongToShort, RejectedTransactionData } from "../../types";
 // @ts-ignore
 import DateRangePicker from "@wojtekmaj/react-daterange-picker";
 
@@ -107,8 +107,9 @@ type ReducerAction = {
 
 
 
-const updateDataset = (range: DateRange, transactions: TransactionData[], devices: DeviceEntry[],
-                        datasetSetter : React.Dispatch<React.SetStateAction<Dataset[]>>) => {
+const updateDataset = async (range: DateRange, transactions: Promise<TransactionData[]>,
+                                devices: Promise<DeviceEntry[]>, rejectedTransactions: Promise<RejectedTransactionData[]>,
+                                datasetSetter : React.Dispatch<React.SetStateAction<Dataset[]>>) => {
     
     let granularity = inferXAxisGranularity (range.start, range.end)
 
@@ -202,7 +203,7 @@ const updateDataset = (range: DateRange, transactions: TransactionData[], device
         granularity : granularity,
         label : "Executed Transactions",
         color : 'green',
-        points : mapper(granularity, transactions,
+        points : mapper(granularity, await transactions,
                         (mapEntry, val) => {mapEntry.push (val)},
                         (val) => {return [val]}
         )
@@ -211,20 +212,21 @@ const updateDataset = (range: DateRange, transactions: TransactionData[], device
         granularity : granularity,
         label : "Devices",
         color : 'blue',
-        points : mapper(granularity, devices,
+        points : mapper(granularity, await devices,
                         (mapEntry, val) => {if (val.mac==undefined) return; if (!mapEntry.includes(val.mac)) {mapEntry.push (val.mac)}},
                         (val) => {return (val.mac==undefined ? [] : [val.mac])}
         )
     })
-    /* TODO datasets.push ({
+    
+    datasets.push ({
         granularity : granularity,
         label : "Rejected Transactions",
         color : 'red',
-        points : mapper(granularity, devices,
-                        (mapEntry, val) => {if (!mapEntry.includes(val.mac)) {mapEntry.push (val.mac)}},
-                        (val) => {return [val.mac]}
+        points : mapper(granularity, await rejectedTransactions,
+                        (mapEntry, val) => {mapEntry.push(val)},
+                        (val) => {return [val]}
         )
-    })*/
+    })
     
     datasetSetter(datasets);
 }
@@ -245,9 +247,10 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
         let queryParams = {deviceId:deviceId, since:new Date(dateRange.start*1000), to:new Date(dateRange.end*1000)}
         const bleData = astarte.getBleData (queryParams)
         const transactionsData = astarte.getTransactionData (queryParams)
-        
+        const rejectedTransactions = astarte.getRejectedTransactions (queryParams)
+
         // Updating 'dataset' variable
-        updateDataset (dateRange, await transactionsData, await bleData, setDataset);
+        updateDataset (dateRange, transactionsData, bleData, rejectedTransactions, setDataset)
     }
 
     const data_updater = (state : number, action : ReducerAction) => {
