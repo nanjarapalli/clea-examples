@@ -1,3 +1,4 @@
+from distutils.log import info
 import cv2
 import numpy as np
 import pandas as pd
@@ -5,6 +6,7 @@ from timeit import default_timer as timer
 import time
 
 from PyQt5.QtCore import (Qt, QObject, pyqtSignal, QThread, QTimer)
+#from smart-vending-machine.app_tablet.astarte.as_conn import send_data
 from openvino.inference_engine import IECore
 
 from utils.definitions import emotions, genders
@@ -31,6 +33,7 @@ def get_bigger_face(locs):
 
 class VideoThread(QThread):
     updated = pyqtSignal()  # in order to work it has to be defined out of the contructor
+    rejected_transaction = pyqtSignal(dict)
 
     def __init__(self, config):
         super().__init__()
@@ -84,6 +87,9 @@ class VideoThread(QThread):
 
     def get_info_user(self):
         return self.current_user
+
+    def reset_user_info(self):
+        self.current_user = {}
 
     def set_frame_threshold(self, thr):
         self.frame_threshold = thr
@@ -284,6 +290,12 @@ class VideoThread(QThread):
                         self.currentFrame = freeze_img
 
                     else:
+                        if self.current_user == {} :
+                            print ("Transaction done")
+                        else :
+                            print ("Transaction rejected!!!!")
+                            self.rejected_transaction.emit(self.current_user)
+
                         face_detected_bool = False
                         face_included_frames = 0
                         freeze = False

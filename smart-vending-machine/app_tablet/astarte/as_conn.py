@@ -69,7 +69,13 @@ def set_device(config):
 
 
 def send_data(device, data):
-    device.send_aggregate("ai.clea.examples.face.emotion.detection.Transaction", "/transaction", payload=data, timestamp=time.time())
+    device.send_aggregate ("ai.clea.examples.face.emotion.detection.Transaction", "/transaction",
+                            payload=data, timestamp=time.time())
+
+
+def send_rejected_transaction (device, data) :
+    device.send_aggregate ("ai.clea.examples.face.emotion.detection.RejectedTransaction", "/transaction",
+                            payload=data, timestamp=time.time())
 
 
 def send_ble_data (device, data) :

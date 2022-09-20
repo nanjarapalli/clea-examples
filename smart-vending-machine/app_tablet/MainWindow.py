@@ -7,7 +7,7 @@ from VideoThread import VideoThread
 from BLEThread import BLEThread
 from ProductBox import ProductBox
 
-from astarte.as_conn import Astarte, send_ble_data
+from astarte.as_conn import Astarte, send_ble_data, send_rejected_transaction
 
 
 def toQImage(im):
@@ -58,6 +58,8 @@ class MainWindow(QWidget):
         self.video_thread = VideoThread(config=config)
         self.video_thread.updated.connect(self.new_image_slot, type=Qt.QueuedConnection)
         self.current_user = {}
+
+        self.video_thread.rejected_transaction.connect (self.rejected_transaction_slot)
 
         self.init_ui()
         self.video_thread.start()
@@ -131,6 +133,13 @@ class MainWindow(QWidget):
         hbox.addStretch(1)
         hbox.addWidget(clea_label)
         return hbox
+
+    def rejected_transaction_slot(self, user_info):
+        print ("Rejected transactions comes to MainWindow")
+        astarte = Astarte()
+        print (user_info)
+        send_rejected_transaction (device=astarte.device, data={"age":user_info['age'], "emotion":user_info['emotion'],
+                                    "gender":user_info['gender'], "suggestion":""})
 
     def new_image_slot(self):
         """Qt Slot for updated signal of the FaceRecogniser. Called every time a new frame is elaborated"""
