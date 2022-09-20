@@ -20,6 +20,15 @@ export type TransactionData = {
   timestamp: number
 }
 
+export type RejectedTransactionData = {
+  age: number,
+  emotion: string,
+  gender: string,
+  suggestion: string,
+  timedate?: string | null | undefined,
+  timestamp: number
+}
+
 export type DeviceEntry = {
     mac: string
     presence_time: string

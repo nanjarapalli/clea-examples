@@ -1,7 +1,7 @@
 import axios from "axios";
 import moment from "moment"
 
-import { TransactionData, BleData, DeviceEntry } from "./types/index"
+import { TransactionData, BleData, DeviceEntry, RejectedTransactionData } from "./types/index"
 
 type AstarteClientProps = {
   astarteUrl: URL;
@@ -48,6 +48,58 @@ class AstarteClient {
   async getTransactionData({ deviceId, sinceAfter, since, to, limit, downsamplingTo }: GetTransactionValuesParams) : Promise<TransactionData[]> {
     const { appEngineUrl, realm, token } = this.config;
     const interfaceName = "ai.clea.examples.face.emotion.detection.Transaction";
+    const path = `v1/${realm}/devices/${deviceId}/interfaces/${interfaceName}/transaction`;
+    const requestUrl = new URL(path, appEngineUrl);
+    const query: Record<string, string> = {};
+    if (sinceAfter) {
+      query.sinceAfter = sinceAfter.toISOString();
+    }
+    if (since) {
+      query.since = since.toISOString();
+    }
+    if (to) {
+      query.to = to.toISOString();
+    }
+    if (limit) {
+      query.limit = limit.toString();
+    }
+    if (downsamplingTo) {
+      if (downsamplingTo > 2) {
+        query.downsample_to = downsamplingTo.toString();
+      } else {
+        console.warn("[AstarteClient] downsamplingTo must be > 2");
+      }
+    }
+    requestUrl.search = new URLSearchParams(query).toString();
+    return axios({
+      method: "get",
+      url: requestUrl.toString(),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json;charset=UTF-8",
+      },
+    }).then((response) => {
+      // console.log("Got response from Astarte:", response);
+      if (response.data.data && Array.isArray(response.data.data)) {
+        response.data.data.forEach( (datapoint: any) => {
+          datapoint.timestamp = moment.utc(datapoint.timestamp).valueOf();
+        });
+        return response.data.data
+      }
+      else {
+        console.error (`[TRANS] Cannot parse response payload: ${response.data}`)
+      }
+      return [];
+    }).catch ((err) => {
+        console.error (`[TRANS] Catched this error:\n${err}`)
+        return []
+    });
+  }
+
+
+  async getRejectedTransactions ({ deviceId, sinceAfter, since, to, limit, downsamplingTo }: GetTransactionValuesParams) : Promise<RejectedTransactionData[]> {
+    const { appEngineUrl, realm, token } = this.config;
+    const interfaceName = "ai.clea.examples.face.emotion.detection.RejectedTransaction";
     const path = `v1/${realm}/devices/${deviceId}/interfaces/${interfaceName}/transaction`;
     const requestUrl = new URL(path, appEngineUrl);
     const query: Record<string, string> = {};
