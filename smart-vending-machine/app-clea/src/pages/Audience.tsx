@@ -7,6 +7,7 @@ import AudienceChartCard from "../components/chartCards/AudienceChartCard";
 import TableCard, {TableRow, TableTab} from "../components/TableCard";
 
 import { BleData, DeviceEntry, TransactionData } from "../types";
+import AstarteClient from "../AstarteClient";
 
 
 const tabsTable: TableTab[] = [
@@ -43,7 +44,8 @@ const tabsTable: TableTab[] = [
 ]
 
 type AudienceProps = {
-  transactions: TransactionData[]
+    astarteClient: AstarteClient,
+    deviceId : string
 }
 
 type ChartData  = {
@@ -51,11 +53,18 @@ type ChartData  = {
     bleDevices: DeviceEntry[]
 }
 
-const Audience: React.FC<AudienceProps> = ({transactions}) => {
+type ChartDataController = {
+    data : ChartData,
+    setter : React.Dispatch<React.SetStateAction<ChartData>>
+
+}
+
+const Audience: React.FC<AudienceProps> = ({astarteClient, deviceId}) => {
 
     const intl = useIntl()
-
-    const [chartData, setChartData] = useState<ChartData> ({transactions:[], bleDevices:[]})
+    
+    const dataState = useState<ChartData> ({transactions:[], bleDevices:[]})
+    const dataController : ChartDataController = {data:dataState[0], setter:dataState[1]};
 
     /*let rowTable: TableRow;
     const rowsTable: TableRow[] = [];
@@ -81,7 +90,7 @@ const Audience: React.FC<AudienceProps> = ({transactions}) => {
             <TopBar transactions={transactions}/>
         </div>*/}
         <div className="row mb-3">
-            {transactions.length ? <AudienceChartCard data={chartData}/> : intl.formatMessage({ id: "loading" })}
+            <AudienceChartCard astarte={astarteClient} dataController={dataController} deviceId={deviceId}/>
         </div>
         {/*<div className="row">
             {transactions.length ? <TableCard tabs={tabsTable} rows={rowsTable} pagination={true} /> : intl.formatMessage({ id: "loading" })}

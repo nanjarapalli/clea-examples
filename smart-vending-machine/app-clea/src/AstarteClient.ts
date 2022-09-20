@@ -80,13 +80,19 @@ class AstarteClient {
       },
     }).then((response) => {
       // console.log("Got response from Astarte:", response);
-      if (response.data.data) {
+      if (response.data.data && Array.isArray(response.data.data)) {
         response.data.data.forEach( (datapoint: any) => {
-          datapoint.timestamp = moment.utc(datapoint.timestamp).unix();
+          datapoint.timestamp = moment.utc(datapoint.timestamp).valueOf();
         });
         return response.data.data
       }
+      else {
+        console.error (`[TRANS] Cannot parse response payload: ${response.data}`)
+      }
       return [];
+    }).catch ((err) => {
+        console.error (`[TRANS] Catched this error:\n${err}`)
+        return []
     });
   }
 
@@ -101,10 +107,12 @@ class AstarteClient {
       query.sinceAfter = sinceAfter.toISOString();
     }
     if (since) {
-      query.since = since.toISOString();
+        //console.log (`Querying for ble from ${since}`)
+        query.since = since.toISOString();
     }
     if (to) {
-      query.to = to.toISOString();
+        //console.log (`Querying for ble to ${to}`)
+        query.to = to.toISOString();
     }
     if (limit) {
       query.limit = limit.toString();
@@ -117,6 +125,7 @@ class AstarteClient {
       }
     }
     requestUrl.search = new URLSearchParams(query).toString();
+    //console.log (`URL --> ${requestUrl.search}`)
 
     return axios({
       method: "get",
@@ -126,25 +135,37 @@ class AstarteClient {
         "Content-Type": "application/json;charset=UTF-8",
       },
     }).then((response) => {
-      console.log("Got BLE response from Astarte:", response);
+      // console.log("Got BLE response from Astarte:", response);
       let result : any[] = [];
 
-      if (response.data.data) {
+      if (response.data.data && Array.isArray(response.data.data)) {
         response.data.data.forEach ((item:any) => {
             if (Array.isArray(item.devices) && Array.isArray(item.presence_time)) {
                 if (item.devices.length != item.presence_time.length) {
                     console.error ("Lengths differs!")
-                    return
                 }
-                let timestamp   = new Date(item.timestamp)
-                for (let i=0; i<item.devices.length; i++) {
-                    result.push({mac:item.devices[i], presence_time:item.presence_time[i], timestamp:Number(timestamp)})
+                else {
+                    let timestamp   = new Date(item.timestamp)
+                    for (let i=0; i<item.devices.length; i++) {
+                        result.push({mac:item.devices[i], presence_time:item.presence_time[i], timestamp:Number(timestamp)})
+                    }
                 }
-                result.sort ((a:DeviceEntry, b:DeviceEntry) => a.timestamp-b.timestamp)
+            }
+            else if (item.devices == null && item.presence_time == null) {
+                result.push ({mac:undefined, presence_time:undefined, timestamp:Number(new Date(item.timestamp))})
             }
         })
       }
+      else {
+        console.error (`[BLE] Cannot parse response payload: ${response.data}`)
+      }
+      result.sort ((a:DeviceEntry, b:DeviceEntry) => a.timestamp-b.timestamp)
+      /*console.log (`result`)
+      console.log (result)*/
       return result;
+    }).catch ((err) => {
+        console.error (`[BLE] Catched this error:\n${err}`)
+        return []
     });
   }
 }

@@ -57,7 +57,7 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
     {
       path: "/audience",
       sidebar: "Audience",
-      main: <Audience transactions={transactions} />
+      main: <Audience astarteClient={astarteClient} deviceId={deviceId} />
     },
   ];
   const titlesSideBar: Array<string> = []
@@ -70,13 +70,12 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
   useEffect(() => {
     getTransactions();
 
-    const t = setInterval(getTransactions, 10000);
+    const t = setInterval(getTransactions, 40000);  // FIXME
     return () => clearInterval(t); // clear
   }, [] );
 
   const getTransactions = async () => {
     const data = await astarteClient.getTransactionData({deviceId});
-    // console.log(data)
     setTransactions(data);
   };
 

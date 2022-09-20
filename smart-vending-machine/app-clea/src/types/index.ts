@@ -29,6 +29,11 @@ export type BleData = {
     devices: DeviceEntry[]
 }
 
+export type DateRange = {
+    start: number;
+    end: number;
+};
+
 export enum BeverageShort {
   ALL = "All",
   ESP = "Esp",

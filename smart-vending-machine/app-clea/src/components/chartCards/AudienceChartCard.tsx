@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef } from "react"
+import React, { useState, useEffect, useRef, forwardRef, useReducer } from "react"
 import { FormattedMessage, useIntl } from "react-intl";
 import CSS from 'csstype';
 
@@ -7,7 +7,8 @@ import { TransactionData, DeviceEntry, BeverageFromLongToShort } from "../../typ
 // @ts-ignore
 import DateRangePicker from "@wojtekmaj/react-daterange-picker";
 
-import LineChart, { Dataset, DataPoint } from "../charts/LineChart"
+import LineChart, { Dataset, DataPoint, XAxisGranularity } from "../charts/LineChart"
+import AstarteClient from "../../AstarteClient";
 
 
 // --------- STYLE ---------
@@ -24,14 +25,37 @@ const colors = ["red", "blue", "yellow", "green", "pink", "cyan", "orange", "lim
 type DateRange = {
     start: number;
     end: number;
-};  
+};
+const printRange = (prefix:string, range:DateRange) : void => {
+    console.log (`[${prefix}]  ${moment(range.start*1000).format('D.M.Y')}  -->  ${moment(range.end*1000).format('D.M.Y')}`)
+}
 enum DateGranularity {
     DAY = "day",
     WEEK = "week",
     MONTH = "month",
     YEAR = "year",
 }
+const SECONDS_IN_A_DAY = 86400;
+const SECONDS_IN_A_MONTH = 2678400;
+
+const inferXAxisGranularity = (start:number, end:number): XAxisGranularity => {
+    let granularity : XAxisGranularity
+    let diff = end - start;
+    // printRange ('I', {start:start, end:end})
+    // console.log (`Diff ${diff}`)
+
+    if (diff <= SECONDS_IN_A_DAY)
+        granularity = XAxisGranularity.HOURS
+    else if (diff <= SECONDS_IN_A_MONTH)
+        granularity = XAxisGranularity.DAYS
+    else
+        granularity = XAxisGranularity.MONTHS
+
+    return granularity
+} 
+
 const inferDateGranularity = (start: moment.Moment, end: moment.Moment): DateGranularity => {
+    console.log (`Inferring from ${start} to ${end}`)
     const diffInDays = Math.abs(end.diff(start, "days"));
     if (diffInDays === 0) {
         return DateGranularity.DAY;
@@ -58,74 +82,223 @@ const getDateRange = (dateType: DateGranularity): DateRange => {
 };
 
 
-enum DataType {
-    UNITS,
-    REVENUES,
-}
+
 
 // ------- Chart Card ---------
 type ChartData  = {
     transactions: TransactionData[]
     bleDevices: DeviceEntry[]
 }
-
-type ChartCardProps = {
-    data: ChartData
+type ChartDataController = {
+    data : ChartData,
+    setter : React.Dispatch<React.SetStateAction<ChartData>>
 }
 
-const OverviewChartCard: React.FC<ChartCardProps> = ( data ) => {
+type ChartCardProps = {
+    dataController : ChartDataController,
+    astarte : AstarteClient,
+    deviceId: string
+}
 
-    console.log ("reloading OverviewChartCard")
+type ReducerAction = {
+    type : string
+}
+
+
+
+const updateDataset = (range: DateRange, transactions: TransactionData[], devices: DeviceEntry[],
+                        datasetSetter : React.Dispatch<React.SetStateAction<Dataset[]>>) => {
+    
+    let granularity = inferXAxisGranularity (range.start, range.end)
+
+    //console.log (`START ${range.start}`)
+
+    let mapper  = (granularity:XAxisGranularity, items:any[], itemHandler:(v:string[], t:any)=>void,
+                    nonItemHandler:(v:any)=> any[]) => {
+        let result : DataPoint[] = []
+
+        console.log (`X axis granularity: ${granularity}`)
+        console.log (`Items count: ${items.length}`)
+        switch (granularity) {
+            case XAxisGranularity.HOURS : {
+                let tmpMap  = new Map<number, string[]> ()        // time_span -> list of items
+                items.forEach ((val, idx, arr) => {
+                    let m_time  = moment (val.timestamp)
+                    m_time.set ('millisecond', 0)
+                    m_time.set ('second', 0)
+                    m_time.set ('minute', 0)
+                    let time_span = m_time.unix()
+                    let currVal = tmpMap.get(time_span)
+                    if (currVal != undefined && Array.isArray(currVal)) {
+                        itemHandler (currVal, val)
+                    }
+                    else {
+                        tmpMap.set(time_span, nonItemHandler(val))
+                    }
+                })
+                tmpMap.forEach ((v, k, m) => {
+                    result.push ({x:k, y:v.length})
+                })
+                break
+            }
+            case XAxisGranularity.DAYS : {
+                let tmpMap  = new Map<number, string[]> ()        // time_span -> list of items
+                items.forEach ((val, idx, arr) => {
+                    let m_time  = moment (val.timestamp)
+                    m_time.set ('millisecond', 0)
+                    m_time.set ('second', 0)
+                    m_time.set ('minute', 0)
+                    m_time.set ('hour', 0)
+                    let time_span = m_time.unix()
+                    let currVal = tmpMap.get(time_span)
+                    if (currVal != undefined && Array.isArray(currVal)) {
+                        itemHandler (currVal, val)
+                    }
+                    else {
+                        tmpMap.set(time_span, nonItemHandler(val))
+                    }
+                })
+                tmpMap.forEach ((v, k, m) => {
+                    result.push ({x:k, y:v.length})
+                })
+                break
+            }
+            case XAxisGranularity.MONTHS : {
+                let tmpMap  = new Map<number, string[]> ()        // time_span -> list of items
+                items.forEach ((val, idx, arr) => {
+                    let m_time  = moment (val.timestamp)
+                    m_time.set ('millisecond', 0)
+                    m_time.set ('second', 0)
+                    m_time.set ('minute', 0)
+                    m_time.set ('hour', 0)
+                    m_time.set ('day', 1)
+                    let time_span = m_time.unix()
+                    let currVal = tmpMap.get(time_span)
+                    if (currVal != undefined && Array.isArray(currVal)) {
+                        itemHandler (currVal, val)
+                    }
+                    else {
+                        tmpMap.set(time_span, nonItemHandler(val))
+                    }
+                })
+                tmpMap.forEach ((v, k, m) => {
+                    result.push ({x:k, y:v.length})
+                })
+                break
+            }
+            default :
+                console.error (`Wrong granularity value -> ${granularity}`)
+        }
+
+        return result
+    }
+
+    const datasets : Dataset[] = []
+    
+    /*console.log (`Examining transactions`)
+    console.log (transactions)*/
+    datasets.push ({
+        granularity : granularity,
+        label : "Transactions",
+        color : 'red',
+        points : mapper(granularity, transactions,
+                        (mapEntry, val) => {mapEntry.push (val)},
+                        (val) => {return [val]}
+        )
+    })
+    datasets.push ({
+        granularity : granularity,
+        label : "Devices",
+        color : 'blue',
+        points : mapper(granularity, devices,
+                        (mapEntry, val) => {if (val.mac==undefined) return; if (!mapEntry.includes(val.mac)) {mapEntry.push (val.mac)}},
+                        (val) => {return (val.mac==undefined ? [] : [val.mac])}
+        )
+    })
+    /* TODO datasets.push ({
+        granularity : granularity,
+        label : "Scanned people",
+        color : 'green',
+        points : mapper(granularity, devices,
+                        (mapEntry, val) => {if (!mapEntry.includes(val.mac)) {mapEntry.push (val.mac)}},
+                        (val) => {return [val.mac]}
+        )
+    })*/
+    
+    datasetSetter(datasets);
+}
+
+
+
+
+const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
+
+    const dataController = params.dataController
+    const astarte = params.astarte
+    const deviceId = params.deviceId
+
+    const data_retriever    = async () => {
+        console.log (`=====  Reloading data!  =====\n`)
+        
+        // Retrieving interesting information from Astarte
+        let queryParams = {deviceId:deviceId, since:new Date(dateRange.start*1000), to:new Date(dateRange.end*1000)}
+        const bleData = astarte.getBleData (queryParams)
+        const transactionsData = astarte.getTransactionData (queryParams)
+        
+        // Updating 'dataset' variable
+        updateDataset (dateRange, await transactionsData, await bleData, setDataset);
+    }
+
+    const data_updater = (state : number, action : ReducerAction) => {
+        switch(action.type) {
+            case "update": {
+                data_retriever ()
+                break
+            }
+            default:
+                break
+            }
+        return state;
+    }
 
     // --------- DatePicker ----------
-    const [dateRange, setDateRange] = useState<DateRange>(getDateRange(DateGranularity.DAY));
-
-    const [dateGranularity, setDateGranularity] = useState<DateGranularity>(DateGranularity.YEAR);
+    const [dateGranularity, setDateGranularity] = useState<DateGranularity>(DateGranularity.DAY);
     const customDateRange = useRef<boolean>(false);
+    const [dateRange, setDateRange] = useState<DateRange>(getDateRange(DateGranularity.DAY));
+    const [reducer, dispatch] = useReducer (data_updater, 0);
+
+    useEffect(() => {
+        data_retriever ()
+
+        const t = setInterval(() => {
+            dispatch ({type:'update'})
+        }, 20000);
+
+        return () => {
+            console.log ("-->  Clearing allocated resources  <--")
+            clearInterval(t)
+        }; // clear
+      }, [] );
+
 
     // --------- Dataset -------------
     const [dataset, setDataset] = useState<Dataset[]>([]);
-    const [currentDataType, setCurrentDataType] = useState<DataType>(DataType.UNITS)
 
     // Trigger filtering on new Beverage or DateRange change
     useEffect(() => {
-        updateDataset(data.data.transactions);
-    }, [currentDataType, dateRange, dateGranularity]);
+        data_retriever ()
+    }, [dateRange, dateGranularity]);
+
 
     const units: { [key: string]: number } = {}
     const revenenues: { [key: string]: number } = {}
     const choicesPoints: DataPoint[] = []
 
+
     labels.forEach((label) => {
         units[label]=0
         revenenues[label]=0
     })
-
-    const updateDataset = (data: TransactionData[]) => {
-        console.log ("Updating dataset..")
-        
-        const newDataset: Dataset[] = [];
-        const range: DateRange = customDateRange.current ? dateRange : getDateRange(dateGranularity)
-        data.forEach( (transaction, index) => {
-            if (transaction && labels.includes(transaction.choice)
-             && moment(transaction.timestamp).isBetween(range.start, range.end)) {
-                units[transaction.choice] += 1
-                revenenues[transaction.choice] += transaction.price || 0
-            }
-        })
-        if (currentDataType === DataType.UNITS) {
-            Object.entries(units).forEach(([key, value], index) => {            
-                choicesPoints.push({label: key, value})
-            })
-        } else {
-            Object.entries(revenenues).forEach(([key, value], index) => {            
-                choicesPoints.push({label: key, value: Math.round(value*100) / 100})
-            })
-        }
-         
-        newDataset.push({name: "Vending Machine", color: colors[6], points: choicesPoints});
-        setDataset(newDataset);
-    }
 
 
     return (
@@ -166,7 +339,7 @@ const OverviewChartCard: React.FC<ChartCardProps> = ( data ) => {
                                     customDateRange.current = false;
                                     setDateRange(getDateRange(DateGranularity.DAY));
                                     setDateGranularity(DateGranularity.DAY);
-                                  }}
+                                }}
                                 >
                                     Day
                                 </button>
@@ -179,7 +352,7 @@ const OverviewChartCard: React.FC<ChartCardProps> = ( data ) => {
                                     customDateRange.current = false;
                                     setDateRange(getDateRange(DateGranularity.WEEK));
                                     setDateGranularity(DateGranularity.WEEK);
-                                  }}
+                                }}
                                 >
                                     Week
                                 </button>
@@ -192,8 +365,8 @@ const OverviewChartCard: React.FC<ChartCardProps> = ( data ) => {
                                     customDateRange.current = false;
                                     setDateRange(getDateRange(DateGranularity.MONTH));
                                     setDateGranularity(DateGranularity.MONTH);
-                                  }}
-                                  >
+                                }}
+                                >
                                     Month
                                 </button>
                             </div>
@@ -220,15 +393,16 @@ const OverviewChartCard: React.FC<ChartCardProps> = ( data ) => {
                     <DateRangePicker
                         value={[moment.unix(dateRange.start).toDate(), moment.unix(dateRange.end).toDate()]}
                         onChange={(range: any) => {
-                        if (range) {
-                            customDateRange.current = true;
-                            setDateRange({ start: moment(range[0]).unix(), end: moment(range[1]).unix() });
-                            setDateGranularity(inferDateGranularity(moment(range[0]), moment(range[1])));
-                        } else {
-                            customDateRange.current = false;
-                            setDateRange(getDateRange(DateGranularity.DAY));
-                            setDateGranularity(DateGranularity.DAY);
-                        }
+                            console.log (`=======================================================           Calendar range ${range}`)
+                            if (range) {
+                                customDateRange.current = true;
+                                setDateRange({ start: moment(range[0]).unix(), end: moment(range[1]).unix() });
+                                setDateGranularity(inferDateGranularity(moment(range[0]), moment(range[1])));
+                            } else {
+                                customDateRange.current = false;
+                                setDateRange(getDateRange(DateGranularity.DAY));
+                                setDateGranularity(DateGranularity.DAY);
+                            }
                         }}
                     />
                     </div>
@@ -238,10 +412,10 @@ const OverviewChartCard: React.FC<ChartCardProps> = ( data ) => {
 
             
             <div className="row">
-                {dataset.length && <LineChart datasets={dataset} measure={currentDataType === DataType.REVENUES ? "€" : ""} legend={false} />}
+                {dataset.length && <LineChart datasets={dataset} legend={false} />}
             </div>
         </div>
     );
 };
 
-export default OverviewChartCard;
+export default AudienceChartCard;
