@@ -107,11 +107,11 @@ class AstarteClient {
       query.sinceAfter = sinceAfter.toISOString();
     }
     if (since) {
-        //console.log (`Querying for ble from ${since}`)
+        // console.log (`Querying for ble from ${since}`)
         query.since = since.toISOString();
     }
     if (to) {
-        //console.log (`Querying for ble to ${to}`)
+        // console.log (`Querying for ble to ${to}`)
         query.to = to.toISOString();
     }
     if (limit) {

@@ -69,15 +69,16 @@ const inferDateGranularity = (start: moment.Moment, end: moment.Moment): DateGra
     return DateGranularity.YEAR;
 };
 const getDateRange = (dateType: DateGranularity): DateRange => {
+    let now = moment();
     switch (dateType) {
       case DateGranularity.DAY:
-        return { start: moment().startOf("day").unix(), end: moment().endOf("day").unix() };
+        return {start: moment(now).subtract(24, 'hours').unix(), end:now.unix()}
       case DateGranularity.WEEK:
-        return { start: moment().subtract(6, "days").startOf("day").unix(), end: moment().endOf("day").unix() };
+        return { start: moment(now).subtract(7, "days").unix(), end: now.unix() };
       case DateGranularity.MONTH:
-        return { start: moment().subtract(30, "days").startOf("day").unix(), end: moment().endOf("day").unix() };
+        return { start: moment(now).subtract(30, "days").unix(), end: now.unix() };
       case DateGranularity.YEAR:
-        return { start: moment().subtract(364, "days").startOf("day").unix(), end: moment().endOf("day").unix() };
+        return { start: moment(now).subtract(365, "days").unix(), end: now.unix() };
     }
 };
 
@@ -199,8 +200,8 @@ const updateDataset = (range: DateRange, transactions: TransactionData[], device
     console.log (transactions)*/
     datasets.push ({
         granularity : granularity,
-        label : "Transactions",
-        color : 'red',
+        label : "Executed Transactions",
+        color : 'green',
         points : mapper(granularity, transactions,
                         (mapEntry, val) => {mapEntry.push (val)},
                         (val) => {return [val]}
@@ -217,8 +218,8 @@ const updateDataset = (range: DateRange, transactions: TransactionData[], device
     })
     /* TODO datasets.push ({
         granularity : granularity,
-        label : "Scanned people",
-        color : 'green',
+        label : "Rejected Transactions",
+        color : 'red',
         points : mapper(granularity, devices,
                         (mapEntry, val) => {if (!mapEntry.includes(val.mac)) {mapEntry.push (val.mac)}},
                         (val) => {return [val.mac]}
