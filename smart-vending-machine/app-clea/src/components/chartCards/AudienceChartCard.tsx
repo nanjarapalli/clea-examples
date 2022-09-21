@@ -107,20 +107,14 @@ type ReducerAction = {
 
 
 
-const updateDataset = async (range: DateRange, transactions: Promise<TransactionData[]>,
-                                devices: Promise<DeviceEntry[]>, rejectedTransactions: Promise<RejectedTransactionData[]>,
-                                datasetSetter : React.Dispatch<React.SetStateAction<Dataset[]>>) => {
+
+const extract_new_dataset  = async (granularity:XAxisGranularity, transactions: Promise<TransactionData[]>,
+                                    devices: Promise<DeviceEntry[]>, rejectedTransactions: Promise<RejectedTransactionData[]>) => {
     
-    let granularity = inferXAxisGranularity (range.start, range.end)
-
-    //console.log (`START ${range.start}`)
-
     let mapper  = (granularity:XAxisGranularity, items:any[], itemHandler:(v:string[], t:any)=>void,
                     nonItemHandler:(v:any)=> any[]) => {
         let result : DataPoint[] = []
 
-        console.log (`X axis granularity: ${granularity}`)
-        console.log (`Items count: ${items.length}`)
         switch (granularity) {
             case XAxisGranularity.HOURS : {
                 let tmpMap  = new Map<number, string[]> ()        // time_span -> list of items
@@ -194,12 +188,10 @@ const updateDataset = async (range: DateRange, transactions: Promise<Transaction
 
         return result
     }
-
-    const datasets : Dataset[] = []
     
-    /*console.log (`Examining transactions`)
-    console.log (transactions)*/
-    datasets.push ({
+    const new_datasets : Dataset[] = []
+
+    new_datasets.push ({
         granularity : granularity,
         label : "Executed Transactions",
         color : 'green',
@@ -208,7 +200,7 @@ const updateDataset = async (range: DateRange, transactions: Promise<Transaction
                         (val) => {return [val]}
         )
     })
-    datasets.push ({
+    new_datasets.push ({
         granularity : granularity,
         label : "Devices",
         color : 'blue',
@@ -217,8 +209,7 @@ const updateDataset = async (range: DateRange, transactions: Promise<Transaction
                         (val) => {return (val.mac==undefined ? [] : [val.mac])}
         )
     })
-    
-    datasets.push ({
+    new_datasets.push ({
         granularity : granularity,
         label : "Rejected Transactions",
         color : 'red',
@@ -227,8 +218,8 @@ const updateDataset = async (range: DateRange, transactions: Promise<Transaction
                         (val) => {return [val]}
         )
     })
-    
-    datasetSetter(datasets);
+
+    return new_datasets;
 }
 
 
@@ -250,8 +241,14 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
         data_retriever ()
 
         const t = setInterval(() => {
-            dispatch ({type:'update'})
-        }, 40000);
+            if (customDateRange.current) {
+                // FIXME update range if current date is comprised
+                console.log ("Custom date range!!!!")
+            }
+            else {
+                setDateRange (getDateRange(dateGranularity))
+            }
+        }, 20000);
 
         return () => {
             console.log ("-->  Clearing allocated resources  <--")
@@ -282,7 +279,7 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
     // ----------------------
     const data_retriever    = async () => {
         console.log (`=====  Reloading data!  =====\n`)
-        
+
         // Retrieving interesting information from Astarte
         let queryParams = {deviceId:deviceId, since:new Date(dateRange.start*1000), to:new Date(dateRange.end*1000)}
         const bleData = astarte.getBleData (queryParams)
@@ -290,10 +287,12 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
         const rejectedTransactions = astarte.getRejectedTransactions (queryParams)
 
         // Updating 'dataset' variable
-        updateDataset (dateRange, transactionsData, bleData, rejectedTransactions, setDataset)
+        let new_datasets = await extract_new_dataset (inferXAxisGranularity(dateRange.start, dateRange.end),
+                                                        transactionsData, bleData, rejectedTransactions)
+        setDataset ((old_value) => {return new_datasets})
     }
 
-    const data_updater = (state : number, action : ReducerAction) => {
+    /*const data_updater = (state : number, action : ReducerAction) => {
         switch(action.type) {
             case "update": {
                 data_retriever ()
@@ -304,7 +303,7 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
             }
         return state;
     }
-    const [reducer, dispatch] = useReducer (data_updater, 0);
+    const [reducer, dispatch] = useReducer (data_updater, 0);*/
 
 
     return (

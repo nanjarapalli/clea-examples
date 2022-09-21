@@ -6,7 +6,7 @@ import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
 import moment, { defineLocale } from "moment"
 
-ChartJS.register(TimeScale, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement, ChartDataLabels);   // FIXME
+ChartJS.register(TimeScale, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement, ChartDataLabels);
 
 
 export enum XAxisGranularity {
@@ -52,8 +52,7 @@ type ScatterChartDescriptor = {
 
 const LineChart = ( { datasets, measure="", legend=true } : ChartProps) : JSX.Element => {
     
-    console.log (datasets)
-    console.log ("Displaying previously printed data..\n\n\n")
+    //console.log ("========   Displaying previously printed data   ========\n========================================================")
 
     
     

@@ -11,6 +11,7 @@ import SideMenu from "./components/SideMenu";
 import AstarteClient from "./AstarteClient";
 import { BleData, TransactionData } from "./types";
 import Age from "./pages/Age";
+import moment from "moment";
 
 export type AppProps = {
   astarteUrl: URL;
@@ -76,6 +77,9 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
 
   const getTransactions = async () => {
     const data = await astarteClient.getTransactionData({deviceId});
+    data.forEach ((v, i, a) => {
+        v.timestamp = moment(v.timestamp).unix()
+    })
     setTransactions(data);
   };
 
