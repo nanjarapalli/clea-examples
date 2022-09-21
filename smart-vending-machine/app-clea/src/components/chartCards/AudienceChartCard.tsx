@@ -246,17 +246,17 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
                 console.log ("Custom date range!!!!")
             }
             else {
-                setDateRange (getDateRange(dateGranularity))
+                dispatch ({type:`update_range`})
             }
-        }, 20000);
-
+        }, 10000);
+        
         return () => {
             console.log ("-->  Clearing allocated resources  <--")
             clearInterval(t)
         }; // clear
-      }, [] );
-
-
+    }, [] );
+    
+    
     // --------- Dataset -------------
     const [dataset, setDataset] = useState<Dataset[]>([]);
     
@@ -269,6 +269,20 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
     const units: { [key: string]: number } = {}
     const revenenues: { [key: string]: number } = {}
     const choicesPoints: DataPoint[] = []
+
+
+    const data_updater = (state : number, action : ReducerAction) => {
+        switch(action.type) {
+            case `update_range`: {
+                setDateRange (getDateRange(dateGranularity))
+                break
+            }
+            default:
+                break
+            }
+        return state;
+    }
+    const [reducer, dispatch] = useReducer (data_updater, 0);
     
     
     labels.forEach((label) => {
@@ -291,19 +305,6 @@ const AudienceChartCard = ( params : ChartCardProps ) : JSX.Element => {
                                                         transactionsData, bleData, rejectedTransactions)
         setDataset ((old_value) => {return new_datasets})
     }
-
-    /*const data_updater = (state : number, action : ReducerAction) => {
-        switch(action.type) {
-            case "update": {
-                data_retriever ()
-                break
-            }
-            default:
-                break
-            }
-        return state;
-    }
-    const [reducer, dispatch] = useReducer (data_updater, 0);*/
 
 
     return (
