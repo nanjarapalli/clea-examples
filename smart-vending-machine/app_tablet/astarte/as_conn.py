@@ -16,20 +16,10 @@ class Singleton(type):
 class Astarte(metaclass=Singleton):
     pass
 
-###########################
-# Configuration Variables #
-###########################
-persistency_dir = 'persistency'
-device_id = '<device ID>'
-realm = '<realm name>'
-credentials_secret = '<credentials secret>'
-pairing_base_url = "<URL>"
-interfaces_dir_path = "astarte/interfaces/face_age_emotions/*.json"
-
 
 def load_interfaces(interfaces_dir):
     interfaces = []
-    for interface_file in glob.iglob(interfaces_dir, recursive=True):
+    for interface_file in glob.iglob("{}/*.json".format(interfaces_dir), recursive=True):
         with open(interface_file) as json_file:
             interfaces.append(json.load(json_file))
     return interfaces
@@ -50,13 +40,17 @@ def connect_callback(sel):
 ###########################
 
 
-def set_device():
-    os.makedirs(persistency_dir, exist_ok=True)
-    device = Device(device_id=device_id, realm=realm, credentials_secret=credentials_secret,
-                    pairing_base_url=pairing_base_url, persistency_dir=persistency_dir)
+def set_device(config):
 
-    interfaces = load_interfaces(interfaces_dir_path)
+    astarte_config = config["ASTARTE"]
+    os.makedirs(astarte_config["persistency_dir"], exist_ok=True)
+    device = Device(device_id=astarte_config["device_id"], realm=astarte_config["realm"],
+                    credentials_secret=astarte_config["credentials_secret"], pairing_base_url=astarte_config["pairing_base_url"],
+                    persistency_dir=astarte_config["persistency_dir"])
+
+    interfaces = load_interfaces(astarte_config["interfaces_dir_path"])
     for interface in interfaces:
+        #print ("Adding interface {}".format(interface))
         device.add_interface(interface)
 
     # device.on_connected = connect_callback
@@ -75,4 +69,15 @@ def set_device():
 
 
 def send_data(device, data):
-    device.send_aggregate("ai.clea.examples.face.emotion.detection.Transaction", "/transaction", payload=data, timestamp=time.time())
+    device.send_aggregate ("ai.clea.examples.face.emotion.detection.Transaction", "/transaction",
+                            payload=data, timestamp=time.time())
+
+
+def send_rejected_transaction (device, data) :
+    device.send_aggregate ("ai.clea.examples.face.emotion.detection.RejectedTransaction", "/transaction",
+                            payload=data, timestamp=time.time())
+
+
+def send_ble_data (device, data) :
+    #print ("Sending those data with {}: {}\n\n\n".format(device, data))
+    device.send_aggregate ('ai.clea.examples.BLEDevices', '/', payload=data)

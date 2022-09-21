@@ -4,8 +4,10 @@ from PyQt5.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QWidget, QInputDia
 from PyQt5.QtGui import QImage, qRgb, QPixmap, QMouseEvent
 
 from VideoThread import VideoThread
-#from VideoThread_openVino import VideoThread
+from BLEThread import BLEThread
 from ProductBox import ProductBox
+
+from astarte.as_conn import Astarte, send_ble_data, send_rejected_transaction
 
 
 def toQImage(im):
@@ -41,7 +43,7 @@ class QLabel_clickable(QLabel):
 
 class MainWindow(QWidget):
 
-    def __init__(self, width, height, stacked_window=None):
+    def __init__(self, config, width, height, stacked_window=None):
         super().__init__()
 
         self.width = width
@@ -51,14 +53,33 @@ class MainWindow(QWidget):
         self.size_icon = QSize(170, 170)
         self.font_size = int(0.016*self.width)
         self.imgs_width = int(0.15*self.width)
+        self.last_mat   = None
 
-        self.video_thread = VideoThread()
+        self.video_thread = VideoThread(config=config)
         self.video_thread.updated.connect(self.new_image_slot, type=Qt.QueuedConnection)
         self.current_user = {}
+
+        self.video_thread.rejected_transaction.connect (self.rejected_transaction_slot)
 
         self.init_ui()
         self.video_thread.start()
         self.pause = False
+
+        # Setting up BLE thread
+        self.ble_thread = BLEThread (config=config)
+        self.ble_thread.start()
+        self.ble_thread.new_data_signal.signal.connect (lambda d : self.ble_sender(d))
+
+
+    def ble_sender (self, devices) :
+        payload = {'devices': [], 'presence_time':[]}
+        for d in devices :
+            payload['devices'].append (d['address'])
+            payload['presence_time'].append (d['presence_time'])
+
+        astarte = Astarte()
+        send_ble_data (device=astarte.device, data=payload)
+
 
     def init_ui(self):
         """Method to initialize the UI: layouts and components"""
@@ -113,6 +134,11 @@ class MainWindow(QWidget):
         hbox.addWidget(clea_label)
         return hbox
 
+    def rejected_transaction_slot(self, user_info):
+        astarte = Astarte()
+        send_rejected_transaction (device=astarte.device, data={"age":user_info['age'], "emotion":user_info['emotion'],
+                                    "gender":user_info['gender']})
+
     def new_image_slot(self):
         """Qt Slot for updated signal of the FaceRecogniser. Called every time a new frame is elaborated"""
         if not self.pause:
@@ -154,5 +180,6 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         print("CLOSED")
+        self.ble_thread.dectivate()
         self.video_thread.deactivate()
         event.accept()

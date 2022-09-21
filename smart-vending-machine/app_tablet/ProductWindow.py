@@ -416,6 +416,7 @@ class ProductWindow(QWidget):
         astarte = Astarte()
         try:
             send_data(astarte.device, data_to_astarte)
+            self.video_thread.reset_user_info()
         except Exception as e:
             print(f"Errore inivio ad Astarte: {e}")
 

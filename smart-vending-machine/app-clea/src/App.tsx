@@ -5,11 +5,13 @@ import Overview from "./pages/Overview";
 import Revenues from "./pages/Revenues";
 import Gender from "./pages/Gender";
 import Emotions from "./pages/Emotions";
+import Audience from "./pages/Audience";
 import SideMenu from "./components/SideMenu";
 
 import AstarteClient from "./AstarteClient";
-import { TransactionData } from "./types";
+import { BleData, TransactionData } from "./types";
 import Age from "./pages/Age";
+import moment from "moment";
 
 export type AppProps = {
   astarteUrl: URL;
@@ -53,6 +55,11 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
       sidebar: "Emotions",
       main: <Emotions transactions={transactions} />
     },
+    {
+      path: "/audience",
+      sidebar: "Audience",
+      main: <Audience astarteClient={astarteClient} deviceId={deviceId} />
+    },
   ];
   const titlesSideBar: Array<string> = []
   const paths: Array<string> = []
@@ -64,13 +71,15 @@ const App = ({ astarteUrl, realm, token, deviceId }: AppProps) => {
   useEffect(() => {
     getTransactions();
 
-    const t = setInterval(getTransactions, 10000);
+    const t = setInterval(getTransactions, 40000);
     return () => clearInterval(t); // clear
   }, [] );
 
   const getTransactions = async () => {
     const data = await astarteClient.getTransactionData({deviceId});
-    // console.log(data)
+    data.forEach ((v, i, a) => {
+        v.timestamp = moment(v.timestamp).unix()
+    })
     setTransactions(data);
   };
 

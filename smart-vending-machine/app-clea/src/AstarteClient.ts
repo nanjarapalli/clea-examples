@@ -1,7 +1,7 @@
 import axios from "axios";
 import moment from "moment"
 
-import { TransactionData } from "./types/index"
+import { TransactionData, BleData, DeviceEntry, RejectedTransactionData } from "./types/index"
 
 type AstarteClientProps = {
   astarteUrl: URL;
@@ -21,6 +21,16 @@ type GetTransactionValuesParams = {
   to?: Date;
   limit?: number;
   downsamplingTo?: number;
+};
+
+
+type GetBleDataValuesParams = {
+    deviceId: string;
+    sinceAfter?: Date;
+    since?: Date;
+    to?: Date;
+    limit?: number;
+    downsamplingTo?: number;
 };
 
 class AstarteClient {
@@ -70,13 +80,144 @@ class AstarteClient {
       },
     }).then((response) => {
       // console.log("Got response from Astarte:", response);
-      if (response.data.data) {
+      if (response.data.data && Array.isArray(response.data.data)) {
         response.data.data.forEach( (datapoint: any) => {
-          datapoint.timestamp = moment.utc(datapoint.timestamp).unix();
+          datapoint.timestamp = moment.utc(datapoint.timestamp).valueOf();
         });
         return response.data.data
       }
+      else {
+        console.error (`[TRANS] Cannot parse response payload: ${response.data}`)
+      }
       return [];
+    }).catch ((err) => {
+        console.error (`[TRANS] Catched this error:\n${err}`)
+        return []
+    });
+  }
+
+
+  async getRejectedTransactions ({ deviceId, sinceAfter, since, to, limit, downsamplingTo }: GetTransactionValuesParams) : Promise<RejectedTransactionData[]> {
+    const { appEngineUrl, realm, token } = this.config;
+    const interfaceName = "ai.clea.examples.face.emotion.detection.RejectedTransaction";
+    const path = `v1/${realm}/devices/${deviceId}/interfaces/${interfaceName}/transaction`;
+    const requestUrl = new URL(path, appEngineUrl);
+    const query: Record<string, string> = {};
+    if (sinceAfter) {
+      query.sinceAfter = sinceAfter.toISOString();
+    }
+    if (since) {
+      query.since = since.toISOString();
+    }
+    if (to) {
+      query.to = to.toISOString();
+    }
+    if (limit) {
+      query.limit = limit.toString();
+    }
+    if (downsamplingTo) {
+      if (downsamplingTo > 2) {
+        query.downsample_to = downsamplingTo.toString();
+      } else {
+        console.warn("[AstarteClient] downsamplingTo must be > 2");
+      }
+    }
+    requestUrl.search = new URLSearchParams(query).toString();
+    return axios({
+      method: "get",
+      url: requestUrl.toString(),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json;charset=UTF-8",
+      },
+    }).then((response) => {
+      // console.log("Got response from Astarte:", response);
+      if (response.data.data && Array.isArray(response.data.data)) {
+        response.data.data.forEach( (datapoint: any) => {
+          datapoint.timestamp = moment.utc(datapoint.timestamp).valueOf();
+        });
+        return response.data.data
+      }
+      else {
+        console.error (`[TRANS] Cannot parse response payload: ${response.data}`)
+      }
+      return [];
+    }).catch ((err) => {
+        console.error (`[TRANS] Catched this error:\n${err}`)
+        return []
+    });
+  }
+
+
+  async getBleData ({deviceId, sinceAfter, since, to, limit, downsamplingTo} : GetBleDataValuesParams) : Promise<DeviceEntry[]> {
+    const { appEngineUrl, realm, token } = this.config;
+    const interfaceName = "ai.clea.examples.BLEDevices";
+    const path = `v1/${realm}/devices/${deviceId}/interfaces/${interfaceName}/`;
+    const requestUrl = new URL(path, appEngineUrl);
+    const query: Record<string, string> = {};
+    if (sinceAfter) {
+      query.sinceAfter = sinceAfter.toISOString();
+    }
+    if (since) {
+        // console.log (`Querying for ble from ${since}`)
+        query.since = since.toISOString();
+    }
+    if (to) {
+        // console.log (`Querying for ble to ${to}`)
+        query.to = to.toISOString();
+    }
+    if (limit) {
+      query.limit = limit.toString();
+    }
+    if (downsamplingTo) {
+      if (downsamplingTo > 2) {
+        query.downsample_to = downsamplingTo.toString();
+      } else {
+        console.warn("[AstarteClient] downsamplingTo must be > 2");
+      }
+    }
+    requestUrl.search = new URLSearchParams(query).toString();
+    //console.log (`URL --> ${requestUrl.search}`)
+
+    return axios({
+      method: "get",
+      url: requestUrl.toString(),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json;charset=UTF-8",
+      },
+    }).then((response) => {
+      // console.log("Got BLE response from Astarte:", response);
+      let result : any[] = [];
+
+      if (response.data.data && Array.isArray(response.data.data)) {
+        response.data.data.forEach ((item:any) => {
+            if (Array.isArray(item.devices) && Array.isArray(item.presence_time)) {
+                if (item.devices.length != item.presence_time.length) {
+                    console.error ("Lengths differs!")
+                }
+                else {
+                    let timestamp   = new Date(item.timestamp)
+                    for (let i=0; i<item.devices.length; i++) {
+                        result.push({mac:item.devices[i], presence_time:item.presence_time[i], timestamp:Number(timestamp)})
+                    }
+                }
+            }
+            else if (item.devices == null && item.presence_time == null) {
+                result.push ({mac:undefined, presence_time:undefined, timestamp:Number(new Date(item.timestamp))})
+            }
+        })
+      }
+      else {
+        console.error (`[BLE] Cannot parse response payload: ${response.data}`)
+      }
+      result.sort ((a:DeviceEntry, b:DeviceEntry) => a.timestamp-b.timestamp)
+      /*console.log (`result`)
+      console.log (result)*/
+      return result;
+    }).catch ((err) => {
+        console.error (`[BLE] Catched this error:\n${err}`)
+        return []
     });
   }
 }

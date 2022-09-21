@@ -1,3 +1,4 @@
+from distutils.log import info
 import cv2
 import numpy as np
 import pandas as pd
@@ -5,6 +6,7 @@ from timeit import default_timer as timer
 import time
 
 from PyQt5.QtCore import (Qt, QObject, pyqtSignal, QThread, QTimer)
+#from smart-vending-machine.app_tablet.astarte.as_conn import send_data
 from openvino.inference_engine import IECore
 
 from utils.definitions import emotions, genders
@@ -31,46 +33,50 @@ def get_bigger_face(locs):
 
 class VideoThread(QThread):
     updated = pyqtSignal()  # in order to work it has to be defined out of the contructor
+    rejected_transaction = pyqtSignal(dict)
 
-    def __init__(self, frame_threshold=50, time_threshold=10, source=0):
+    def __init__(self, config):
         super().__init__()
 
         self.currentFrame = None
         self.active = False
         self.pause = False
-        self.source = source
+        self.source = config["VIDEO"]["source"]
         self.current_user = {}
         self.detector_backend = 'opencv'
         self.enable_face_analysis = True
-        self.frame_threshold = frame_threshold
-        self.time_threshold = time_threshold
-        self.init_models()
+        self.frame_threshold = int(config["VIDEO"]["frame_threshold"])
+        self.time_threshold = int(config["VIDEO"]["time_threshold"])
+        self.init_models(config=config)
 
-    def init_models(self):
+
+    def init_models(self, config):
         tic = time.time()
         ie = IECore()
-
+        video_config = config["VIDEO"]
+        
         self.net_face_det = ie.read_network(
-            # model=".\\model\\face-detection-retail-0004\\FP16\\face-detection-retail-0004.xml",
-            # weights=".\\model\\face-detection-retail-0004\\FP16\\face-detection-retail-0004.bin",
-            model="./model/face-detection-retail-0004/FP16/face-detection-retail-0004.xml",
-            weights="./model/face-detection-retail-0004/FP16/face-detection-retail-0004.bin",
+            model="{}.xml".format(video_config["face_detection_model_prefix"]),
+            weights="{}.bin".format(video_config["face_detection_model_prefix"])
         )
         self.net_age_gen = ie.read_network(
-            # model=".\\model\\age-gender-recognition-retail-0013\\FP16\\age-gender-recognition-retail-0013.xml",
-            # weights=".\\model\\age-gender-recognition-retail-0013\\FP16\\age-gender-recognition-retail-0013.bin",
-            model="./model/age-gender-recognition-retail-0013/FP16/age-gender-recognition-retail-0013.xml",
-            weights="./model/age-gender-recognition-retail-0013/FP16/age-gender-recognition-retail-0013.bin",
+            model="{}.xml".format(video_config["age_gender_model_prefix"]),
+            weights="{}.bin".format(video_config["age_gender_model_prefix"])
         )
         self.net_emotions = ie.read_network(
-            # model=".\\model\\emotions-recognition-retail-0003\\FP16\\emotions-recognition-retail-0003.xml",
-            # weights=".\\model\\emotions-recognition-retail-0003\\FP16\\emotions-recognition-retail-0003.bin",
-            model="./model/emotions-recognition-retail-0003/FP16/emotions-recognition-retail-0003.xml",
-            weights="./model/emotions-recognition-retail-0003/FP16/emotions-recognition-retail-0003.bin",
+            model="{}.xml".format(video_config["emotions_model_prefix"]),
+            weights="{}.bin".format(video_config["emotions_model_prefix"])
         )
-        self.exec_net_face_det = ie.load_network(self.net_face_det, "CPU")
-        self.exec_net_age_gen = ie.load_network(self.net_age_gen, "CPU")
-        self.exec_net_emotions = ie.load_network(self.net_emotions, "CPU")
+
+
+        print ("Loading face detection network..")
+        self.exec_net_face_det = ie.load_network(self.net_face_det, video_config["face_detection_net_executor"])
+        print ("Loading age and gender network..")
+        self.exec_net_age_gen = ie.load_network(self.net_age_gen, video_config["age_gender_net_executor"])
+        print ("Loading emotions network..")
+        self.exec_net_emotions = ie.load_network(self.net_emotions, video_config["emotions_net_executor"])
+
+        print ("\n====================\nAll networks loaded!\n====================\n")
 
         toc = time.time()
         print("Facial attibute analysis models loaded in ", toc - tic, " seconds")
@@ -81,6 +87,9 @@ class VideoThread(QThread):
 
     def get_info_user(self):
         return self.current_user
+
+    def reset_user_info(self):
+        self.current_user = {}
 
     def set_frame_threshold(self, thr):
         self.frame_threshold = thr
@@ -99,6 +108,8 @@ class VideoThread(QThread):
 
     def unpause(self):
         self.pause = False
+        
+
 
     def run(self):
         """Main loop of this Thread"""
@@ -114,6 +125,7 @@ class VideoThread(QThread):
         _, _, H, W = self.net_face_det.input_info[input_layer_ir_face_det].tensor_desc.dims
         _, _, H_ag, W_ag = self.net_age_gen.input_info[input_layer_ir_age_gen].tensor_desc.dims
         _, _, H_em, W_em = self.net_emotions.input_info[input_layer_ir_emotions].tensor_desc.dims
+
 
         camera = cv2.VideoCapture(self.source)
 
@@ -137,6 +149,7 @@ class VideoThread(QThread):
 
                 frame = cv2.flip(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), 1)
 
+                
                 raw_img = frame.copy()
                 if freeze == False:
                     try:
@@ -277,6 +290,11 @@ class VideoThread(QThread):
                         self.currentFrame = freeze_img
 
                     else:
+                        if self.current_user == {} :
+                            pass
+                        else :
+                            self.rejected_transaction.emit(self.current_user)
+
                         face_detected_bool = False
                         face_included_frames = 0
                         freeze = False
@@ -284,8 +302,6 @@ class VideoThread(QThread):
                 else:
                     # Store the current image
                     self.currentFrame = frame
-                    # toc = time.time()
-                    # if (toc - tic) < self.time_threshold:
                     self.current_user = {}
                     pass
 
