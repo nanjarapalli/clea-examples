@@ -135,9 +135,7 @@ class MainWindow(QWidget):
         return hbox
 
     def rejected_transaction_slot(self, user_info):
-        print ("Rejected transactions comes to MainWindow")
         astarte = Astarte()
-        print (user_info)
         send_rejected_transaction (device=astarte.device, data={"age":user_info['age'], "emotion":user_info['emotion'],
                                     "gender":user_info['gender']})
 

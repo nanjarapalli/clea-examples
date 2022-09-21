@@ -291,9 +291,8 @@ class VideoThread(QThread):
 
                     else:
                         if self.current_user == {} :
-                            print ("Transaction done")
+                            pass
                         else :
-                            print ("Transaction rejected!!!!")
                             self.rejected_transaction.emit(self.current_user)
 
                         face_detected_bool = False
