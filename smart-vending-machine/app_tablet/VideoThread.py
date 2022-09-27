@@ -198,7 +198,7 @@ class VideoThread(QThread):
                             if area > area_max:
                                 area_max = area
                                 detected_faces.append((x_min, y_min, x_max, y_max))
-                                cv2.rectangle(rgb_image, (x_min, y_min), (x_max, y_max), (67, 67, 67), 1)  # draw rectangle to main image
+                                cv2.rectangle(rgb_image, (x_min, y_min), (x_max, y_max), (65,105,225), 2)  # draw rectangle to main image
                                 cv2.putText(frame, str(self.frame_threshold - face_included_frames),
                                             (int(x_min + (x_max-x_min) / 4)-30, int(y_min + (y_max-y_min) / 1.5)+10),
                                             cv2.FONT_HERSHEY_SIMPLEX, 4, (255, 255, 255), 2
@@ -226,7 +226,7 @@ class VideoThread(QThread):
                                 w = abs(detected_face[0] - detected_face[2])
                                 h = abs(detected_face[1] - detected_face[3])
 
-                                cv2.rectangle(freeze_img, (x, y), (x + w, y + h), (67, 67, 67),1)  # draw rectangle to main image
+                                cv2.rectangle(freeze_img, (x, y), (x + w, y + h), (65,105,225), 4)  # draw rectangle to main image
 
                                 try:
                                     custome_face = frame[y:y+h, x:x+w, :]
@@ -258,21 +258,21 @@ class VideoThread(QThread):
                                     x_info = 10
                                     y_info = 10
 
-                                    cv2.rectangle(freeze_img, (x_info, y_info), (x_info + 120, y_info + 80), (64, 64, 64), cv2.FILLED)
+                                    cv2.rectangle(freeze_img, (x_info, y_info), (x_info + 200, y_info + 80), (64, 64, 64), cv2.FILLED)
                                     cv2.addWeighted(overlay, opacity, freeze_img, 1 - opacity, 0, freeze_img)
 
                                     x_info += 2
                                     y_info += 20
                                     cv2.putText(freeze_img, f"Emotion: {emotion_label}", (x_info, y_info),
-                                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                                     # x_info += 20
                                     y_info += 20
                                     cv2.putText(freeze_img, f"Gender: {gender}", (x_info, y_info),
-                                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                                     # x_info += 20
                                     y_info += 20
                                     cv2.putText(freeze_img, f"Age: {apparent_age}", (x_info, y_info),
-                                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                                     break
                                     
                                 except Exception as e:
