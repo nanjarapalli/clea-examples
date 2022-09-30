@@ -181,7 +181,7 @@ class AstarteClient {
     }
 
 
-    async getBateryData (since:Date, to:Date) {
+    async getBatteryData (since:Date, to:Date) {
         // TODO Retrieve by parts
         return this.performQuery ({since, to}, this.BATTERY_STATISTICS_INTERFACE, "")
     }
