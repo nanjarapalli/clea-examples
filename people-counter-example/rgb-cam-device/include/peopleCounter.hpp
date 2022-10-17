@@ -11,6 +11,7 @@
 
 #include <commons.hpp>
 #include <streamingServer.hpp>
+#include <videoVisualizer.hpp>
 #include <tracker.hpp>
 #include <detector.hpp>
 #include <utils/images_capture.h>

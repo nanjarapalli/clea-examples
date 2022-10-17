@@ -297,6 +297,7 @@ void PeopleCounter::analyzeCurrentData (cv::Mat& frame, Scene &actual_scene,
 
 
 void PeopleCounter::people_counter_function () {
+    std::unique_ptr<VideoVisualizer> visualier  = nullptr;   
     uint32_t frame_idx          = 0;
     uint32_t frames_processed   = 0;
     cv::Mat frame               = m_img_source->read();
@@ -372,6 +373,10 @@ void PeopleCounter::people_counter_function () {
 
     qInfo() << "\n\nTo close the application, press 'CTRL+C'\n\n";
 
+    if (m_settings.value("AppSettings/displayVideo").toBool()) {
+        visualier   = std::unique_ptr<VideoVisualizer> (new VideoVisualizer ());
+    }
+
     while (m_still_continue) {
         ++frame_idx;
         
@@ -432,8 +437,10 @@ void PeopleCounter::people_counter_function () {
 
             frames_processed++;
             
-            if (m_settings.value("AppSettings/displayVideo").toBool())
-                cv::imshow("dbg", frame);
+            if (visualier) {
+                QImage qimg(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_RGB888);
+                visualier->update (std::ref(qimg));
+            }
             if (frames_processed%4 == 0)   // FIXME Make frame frequency customizable
                 m_streaming_server->dispatch_frame(frame, current_detections);
             
