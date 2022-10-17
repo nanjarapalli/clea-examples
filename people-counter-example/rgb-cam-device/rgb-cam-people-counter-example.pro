@@ -1,4 +1,4 @@
-QT += core websockets
+QT += core websockets gui widgets
 QT -= gui
 TARGET = rgb-cam-people-counter-example
 TEMPLATE = app
@@ -8,6 +8,8 @@ MOC_DIR     = build/moc
 OBJECTS_DIR = build/obj
 UI_DIR      = build/ui
 RCC_DIR     = build/
+
+FORMS       += videovisualizer.ui
 
 INCLUDEPATH += include \
                 /usr/include/AstarteDeviceSDKQt5 \
@@ -36,7 +38,8 @@ LIBS += -L/opt/intel/openvino_2021.4.689/opencv/lib \
 HEADERS += include/peopleCounter.hpp \
             include/streamingServer.hpp \
             include/commons.hpp \
-            include/base64.hpp
+            include/base64.hpp \
+            include/videoVisualizer.hpp
 
 SOURCES += src/main.cpp \
             src/peopleCounter.cpp \
@@ -53,4 +56,5 @@ SOURCES += src/main.cpp \
             src/monitors/presenter.cpp \
             src/utils/images_capture.cpp \
             src/utils/performance_metrics.cpp \
-            src/base64.cpp
+            src/base64.cpp \
+            src/utils/videoVisualizer.cpp

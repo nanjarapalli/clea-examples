@@ -5,6 +5,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
+#include <QtWidgets/QApplication>
 
 #include <HemeraCore/Operation>
 
@@ -36,7 +37,7 @@ using namespace InferenceEngine;
 
 
 PeopleCounter *people_counter_ptr = nullptr;
-QCoreApplication *app_ptr   = nullptr;
+QApplication *app_ptr   = nullptr;
 
 std::unique_ptr<PedestrianTracker>
 CreatePedestrianTracker(const std::string& reid_model,
@@ -193,7 +194,7 @@ int main(int argc, char **argv) {
                                         std::ref(tracker));
         people_counter_ptr  = &people_counter;
 
-        QCoreApplication core_app (argc, argv);
+        QApplication core_app (argc, argv);
         app_ptr = &core_app;
 
         std::signal (SIGINT, signal_handler);
