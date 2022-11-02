@@ -1,0 +1,54 @@
+.indicator {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  font-size: 2.2em;
+  font-weight: 100;
+  color: #555;
+  user-select: none;
+}
+
+.slider {
+  max-width: 280px;
+  /* display: none; */
+  margin: 30px auto;
+  justify-content: space-between;
+  align-items: center;
+}
+input {
+  display: inline-block;
+}
+
+.desc {
+  display: inline-block;
+  font-size: 1.05em;
+  color: #777;
+  font-weight: 300;
+}
+
+span {
+  flex: 1;
+  margin-right: 10px;
+}
+
+a {
+  text-decoration: none;
+  color: #ccc;
+  font-size: 0.9em;
+}
+
+@keyframes fan-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
