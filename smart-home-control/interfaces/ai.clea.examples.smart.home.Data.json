@@ -1,0 +1,35 @@
+{
+    "interface_name": "ai.clea.examples.smart.home.Data",
+    "version_major": 0,
+    "version_minor": 1,
+    "type": "datastream",
+    "ownership": "device",
+    "mappings": [
+        {
+            "endpoint": "/fan/speed",
+            "type": "integer",
+            "reliability": "guaranteed"
+        },
+        {
+            "endpoint": "/fan/status",
+            "type": "boolean",
+            "reliability": "guaranteed",
+            "explicit_timestamp": true
+        },
+        {
+            "endpoint": "/greenlight/status",
+            "type": "boolean",
+            "reliability": "guaranteed"
+        },
+        {
+            "endpoint": "/light/brightness",
+            "type": "integer",
+            "reliability": "guaranteed"
+        },
+        {
+            "endpoint": "/redlight/status",
+            "type": "boolean",
+            "reliability": "guaranteed"
+        }
+    ]
+}

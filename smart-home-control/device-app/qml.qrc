@@ -1,0 +1,19 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>HSlider.qml</file>
+        <file>CircularProgressBar.qml</file>
+        <file>assets/images/5577112.jpg</file>
+        <file>assets/images/Clea logo.png</file>
+        <file>assets/images/logo-seco-02.png</file>
+        <file>FanBlock.qml</file>
+        <file>Header.qml</file>
+        <file>Tracer.qml</file>
+        <file>LightsBlock.qml</file>
+        <file>BrightnessBlock.qml</file>
+        <file>CSwitch.qml</file>
+        <file>assets/images/89ed3a8a84d78fd19b29e5f0cd6958a2.svg</file>
+        <file>assets/images/cloudOffline.png</file>
+        <file>assets/images/cloudOnline.png</file>
+    </qresource>
+</RCC>
