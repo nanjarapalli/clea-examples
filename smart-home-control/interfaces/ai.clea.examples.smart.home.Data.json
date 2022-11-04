@@ -6,28 +6,33 @@
     "ownership": "device",
     "mappings": [
         {
-            "endpoint": "/fan/speed",
+            "endpoint": "/dashboard/fan/speed",
             "type": "integer",
             "reliability": "guaranteed"
         },
         {
-            "endpoint": "/fan/status",
+            "endpoint": "/dashboard/fan/status",
             "type": "boolean",
             "reliability": "guaranteed",
             "explicit_timestamp": true
         },
         {
-            "endpoint": "/greenlight/status",
-            "type": "boolean",
-            "reliability": "guaranteed"
-        },
-        {
-            "endpoint": "/light/brightness",
+            "endpoint": "/dashboard/light/brightness",
             "type": "integer",
             "reliability": "guaranteed"
         },
         {
-            "endpoint": "/redlight/status",
+            "endpoint": "/dashboard/light/dimming",
+            "type": "boolean",
+            "reliability": "guaranteed"
+        },
+        {
+            "endpoint": "/dashboard/light/green",
+            "type": "boolean",
+            "reliability": "guaranteed"
+        },
+        {
+            "endpoint": "/dashboard/light/red",
             "type": "boolean",
             "reliability": "guaranteed"
         }
